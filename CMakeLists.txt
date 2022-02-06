@@ -1,7 +1,6 @@
 cmake_minimum_required (VERSION 3.14)
 project(libechidna)
 
-
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,8 +14,9 @@ include(FetchContent)
 add_subdirectory(src)
 
 
-if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING)
-   AND BUILD_TESTING)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   add_subdirectory(tests)
+  # enable testing in parent
+  enable_testing()
 endif()
 # END echidna
