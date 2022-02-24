@@ -36,12 +36,14 @@ namespace coypu
 
         // doesnt return error
         coypu::file::FileUtil::Mkdir(path.c_str(), 0777, true);
+        /*
         bool exists = false;
         coypu::file::FileUtil::Exists(path.c_str(), exists);
         if (!exists)
         {
           return nullptr;
         }
+        */
 
         // TODO if we go backward it will be quicker (less copies?)
         for (uint32_t index = 0; index < UINT32_MAX; ++index)
