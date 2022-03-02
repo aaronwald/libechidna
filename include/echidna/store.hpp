@@ -916,11 +916,14 @@ namespace coypu::store
 
     bool Backup(int count)
     {
+      assert(false);
       return true;
     }
 
     bool Skip(int count)
     {
+      assert(false);
+
       // nop - should be enable_if
       return true;
     }
