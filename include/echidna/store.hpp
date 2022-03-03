@@ -1029,6 +1029,11 @@ namespace coypu::store
     {
       if (size <= _curOffset)
       {
+        // TODO The issue here is the backup does not propigate to the stream correctly.
+        // Also available overflows because we think we read the entire page but there is actually much less data available. so we should be setting the max somehow for the zerocopyread which can be hugeaw
+
+        //_stream->Backup(size);
+
         _curOffset -= size;
         return true;
       }
@@ -1057,10 +1062,16 @@ namespace coypu::store
 
     bool ZeroCopyReadNext(typename S::offset_type offset, const void **data, int *len)
     {
+      typename S::offset_type max_avail = Available();
       bool b = _stream->ZeroCopyReadNext(offset, data, len);
       if (b)
       {
-        // This consumes the entire page..... Not just the available data.
+        // TODO: Now the offset exceeds what has been pushed here.
+        //
+        if (*len > max_avail)
+        {
+          *len = max_avail;
+        }
         _curOffset += *len;
       }
       return b;
