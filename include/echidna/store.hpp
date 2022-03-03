@@ -777,6 +777,7 @@ namespace coypu::store
 
     bool ZeroCopyReadNext(offset_type offset, const void **data, int *len)
     {
+      std::cout << " ZeroCopyReadNext " << *len << std::endl;
       typename read_cache_type::read_cache_type page;
       if (_readCache.PeakPage(offset, page))
         return false;
