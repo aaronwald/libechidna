@@ -1034,7 +1034,11 @@ namespace coypu::store
 
         //_stream->Backup(size);
 
+        typename S::offset_type c = _curOffset;
         _curOffset -= size;
+
+        _stream->Skip(c - _curOffset); // consumed
+
         return true;
       }
       return false;
