@@ -1027,7 +1027,6 @@ namespace coypu::store
 
     bool Backup(typename S::offset_type size)
     {
-      std::cout << "*** Backup " << size << std::endl;
       if (size <= _curOffset)
       {
 
@@ -1073,8 +1072,6 @@ namespace coypu::store
         }
         _curOffset += *len;
       }
-
-      std::cout << "*** ZeroCopyReadNext " << *len << std::endl;
 
       return b;
     }
