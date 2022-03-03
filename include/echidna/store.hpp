@@ -1095,11 +1095,14 @@ namespace coypu::store
 
     int ZeroCopyWriteNext(void **data, int *len)
     {
+      std::cout << "ZeroCopyWriteNext " << *len << std::endl;
+
       return _stream->ZeroCopyWriteNext(data, len);
     }
 
     void ZeroCopyWriteBackup(int len)
     {
+      std::cout << "ZeroCopyWriteBackup " << len << std::endl;
       _stream->ZeroCopyWriteBackup(len);
     }
 
