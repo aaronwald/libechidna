@@ -316,6 +316,7 @@ namespace coypu::store
       {
         *data = &_dataPage.first[offset - _dataPage.second];
         *len = _pageSize - (offset - _dataPage.second);
+
         return true;
       }
       return false;
@@ -777,7 +778,6 @@ namespace coypu::store
 
     bool ZeroCopyReadNext(offset_type offset, const void **data, int *len)
     {
-      std::cout << " ZeroCopyReadNext " << *len << std::endl;
       typename read_cache_type::read_cache_type page;
       if (_readCache.PeakPage(offset, page))
         return false;
@@ -1060,6 +1060,7 @@ namespace coypu::store
       bool b = _stream->ZeroCopyReadNext(offset, data, len);
       if (b)
       {
+        // This consumes the entire page..... Not just the available data.
         _curOffset += *len;
       }
       return b;
@@ -1096,14 +1097,11 @@ namespace coypu::store
 
     int ZeroCopyWriteNext(void **data, int *len)
     {
-      std::cout << "ZeroCopyWriteNext " << *len << std::endl;
-
       return _stream->ZeroCopyWriteNext(data, len);
     }
 
     void ZeroCopyWriteBackup(int len)
     {
-      std::cout << "ZeroCopyWriteBackup " << len << std::endl;
       _stream->ZeroCopyWriteBackup(len);
     }
 
@@ -1207,21 +1205,16 @@ namespace coypu::store
 
     inline typename S::offset_type Free() const
     {
-      std::cout << "Free " << _stream->Free() << std::endl;
       return _stream->Free();
     }
 
     typename S::iterator begin(typename S::offset_type offset)
     {
-      std::cout << "Begin " << offset << std::endl;
-
       return _stream->begin(offset);
     }
 
     typename S::iterator end(typename S::offset_type end)
     {
-      std::cout << "End " << end << std::endl;
-
       return _stream->end(end);
     }
 
