@@ -1203,16 +1203,21 @@ namespace coypu::store
 
     inline typename S::offset_type Free() const
     {
+      std::cout << "Free " << _stream->Free() << std::endl;
       return _stream->Free();
     }
 
     typename S::iterator begin(typename S::offset_type offset)
     {
+      std::cout << "Begin " << offset << std::endl;
+
       return _stream->begin(offset);
     }
 
     typename S::iterator end(typename S::offset_type end)
     {
+      std::cout << "End " << end << std::endl;
+
       return _stream->end(end);
     }
 
