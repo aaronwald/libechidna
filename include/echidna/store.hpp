@@ -316,6 +316,7 @@ namespace coypu::store
       {
         *data = &_dataPage.first[offset - _dataPage.second];
         *len = _pageSize - (offset - _dataPage.second);
+
         return true;
       }
       return false;
@@ -1028,7 +1029,11 @@ namespace coypu::store
     {
       if (size <= _curOffset)
       {
+
+        typename S::offset_type c = _curOffset;
         _curOffset -= size;
+        // TODO Check
+
         return true;
       }
       return false;
@@ -1056,11 +1061,18 @@ namespace coypu::store
 
     bool ZeroCopyReadNext(typename S::offset_type offset, const void **data, int *len)
     {
+      typename S::offset_type max_avail = Available();
       bool b = _stream->ZeroCopyReadNext(offset, data, len);
       if (b)
       {
+        // TODO Review. This seems correct, we only have this much data in the stream
+        if (*len > max_avail)
+        {
+          *len = max_avail;
+        }
         _curOffset += *len;
       }
+
       return b;
     }
 
