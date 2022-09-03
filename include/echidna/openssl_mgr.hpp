@@ -76,17 +76,19 @@ namespace coypu::net::ssl
 		OpenSSLManager(LogTrait &logger, std::function<int(int)> set_write, const std::string &CApath) : _logger(logger),
 																																																		 _set_write(set_write), _ctx(nullptr)
 		{
-			_ctx = SSL_CTX_new(SSLv23_method());
+			_ctx = SSL_CTX_new(TLS_method());
 			if (!_ctx)
 			{
 				// a->error("SSL init failed.");
 				assert(false);
 			}
-			SSL_CTX_set_options(_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 |
-																		SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
+			// SSL_CTX_set_options(_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 |
+			// 															SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
+			SSL_CTX_set_options(_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_COMPRESSION);
+
 			SSL_CTX_set_verify(_ctx, SSL_VERIFY_PEER, VerifyCTX);
 			SSL_CTX_load_verify_locations(_ctx, nullptr, CApath.c_str());
-			SSL_CTX_set_verify_depth(_ctx, 10); // 10?
+			SSL_CTX_set_verify_depth(_ctx, 4); // 10?
 		}
 
 		virtual ~OpenSSLManager()
@@ -103,6 +105,7 @@ namespace coypu::net::ssl
 			SSL_library_init(); // always returns 1
 			OpenSSL_add_all_algorithms();
 			SSL_load_error_strings();
+			ERR_load_SSL_strings();
 			ERR_load_crypto_strings();
 		}
 
@@ -122,8 +125,11 @@ namespace coypu::net::ssl
 
 			// std::function<int(int, X509_STORE_CTX *)> cb = std::bind(&OpenSSLManager<LogTrait>::VerifyCTX, this, std::placeholders::_1, std::placeholders::_2); // doesnt work
 			SSL_set_verify(ssl, SSL_VERIFY_PEER, Verify<LogTrait>);
-			SSL_set_verify_depth(ssl, 10); // 10 ?
+			SSL_set_verify_depth(ssl, 4); // 10 ?
 			SSL_set_ex_data(ssl, 1, this);
+			SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY);
+
+			SSL_set_tlsext_host_name(ssl, "ws.kraken.com");
 
 			_logger->info("SSL CTX verifyMode[{0}] verifyMode[{1}] fd[{2}]",
 										SSL_CTX_get_verify_mode(_ctx),

@@ -71,10 +71,10 @@ namespace coypu::http::websocket
   static constexpr int WS_SEC_KEY_LEN = 16;
   static constexpr int WS_SEC_KEY_SIZE = 1 + (((WS_SEC_KEY_LEN / 3) + 1) * 4);
 
-  static constexpr const char *HEADER_SEC_WEBSOCKET_PROTOCOL = "Sec-Websocket-Protocol";
-  static constexpr const char *HEADER_SEC_WEBSOCKET_KEY = "Sec-Websocket-Key";
-  static constexpr const char *HEADER_SEC_WEBSOCKET_ACCEPT = "Sec-Websocket-Accept";
-  static constexpr const char *HEADER_SEC_WEBSOCKET_VERSION = "Sec-Websocket-Version";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_PROTOCOL = "Sec-WebSocket-Protocol";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_KEY = "Sec-WebSocket-Key";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_ACCEPT = "Sec-WebSocket-Accept";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_VERSION = "Sec-WebSocket-Version";
   static constexpr const char *HEADER_UPGRADE = "Upgrade";
   static constexpr const char *HEADER_CONNECTION = "Connection";
   static constexpr const char *HEADER_HOST = "Host";
@@ -508,6 +508,7 @@ namespace coypu::http::websocket
       for (; header[i] != ':' && i < hdr_len; ++i)
       {
       }
+      std::cout << "Raw Header:" << header << std::endl;
       if (i > 0 && i < hdr_len)
       {
         std::string key = std::string(header, i);
