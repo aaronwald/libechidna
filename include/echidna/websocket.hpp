@@ -511,7 +511,7 @@ namespace coypu::http::websocket
       if (i > 0 && i < hdr_len)
       {
         std::string key = std::string(header, i);
-        coypu::util::StringUtil::ToLower(key);
+        // coypu::util::StringUtil::ToLower(key);
         int skip = header[i + 1] == ' ' ? 2 : 1;
         std::string value = std::string(&header[i + skip], hdr_len - i - 1 - skip);
         _logger->debug("Header fd[{2}] {0} {1}", key, value, con->_fd);
