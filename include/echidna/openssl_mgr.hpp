@@ -114,7 +114,7 @@ namespace coypu::net::ssl
 			return ::EVP_EncodeBlock(dest, src, srclen);
 		}
 
-		int Register(int fd, bool setConnect = true)
+		int Register(int fd, const std::string &hostname, bool setConnect = true)
 		{
 			SSL *ssl = SSL_new(_ctx);
 			if (!ssl)
@@ -129,7 +129,8 @@ namespace coypu::net::ssl
 			SSL_set_ex_data(ssl, 1, this);
 			SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY);
 
-			SSL_set_tlsext_host_name(ssl, "ws.kraken.com");
+			if (!hostname.empty())
+				SSL_set_tlsext_host_name(ssl, hostname.c_str());
 
 			_logger->info("SSL CTX verifyMode[{0}] verifyMode[{1}] fd[{2}]",
 										SSL_CTX_get_verify_mode(_ctx),
