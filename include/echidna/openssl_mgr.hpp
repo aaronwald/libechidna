@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <sys/uio.h>
+#include <string.h>
 
 #include <vector>
 #include <memory>
