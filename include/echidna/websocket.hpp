@@ -508,7 +508,6 @@ namespace coypu::http::websocket
       for (; header[i] != ':' && i < hdr_len; ++i)
       {
       }
-      std::cout << "Raw Header:" << header << std::endl;
       if (i > 0 && i < hdr_len)
       {
         std::string key = std::string(header, i);
@@ -961,7 +960,7 @@ namespace coypu::http::websocket
 
           if (!AddHeader(header, offset, con))
           {
-            _logger->error("Add header failed [{0}].", header);
+            _logger->warn("Add header failed [{0}].", header);
           }
         }
       }
