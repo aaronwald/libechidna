@@ -75,11 +75,11 @@ namespace coypu::http::websocket
   static constexpr const char *HEADER_SEC_WEBSOCKET_KEY = "sec-websocket-key";
   static constexpr const char *HEADER_SEC_WEBSOCKET_ACCEPT = "sec-websocket-accept";
   static constexpr const char *HEADER_SEC_WEBSOCKET_VERSION = "sec-websocket-version";
-  static constexpr const char *HEADER_UPGRADE = "upgrade";
-  static constexpr const char *HEADER_CONNECTION = "connection";
-  static constexpr const char *HEADER_HOST = "host";
-  static constexpr const char *HEADER_ORIGIN = "origin";
-  static constexpr const char *HEADER_SERVERS = "server";
+  static constexpr const char *HEADER_UPGRADE = "Upgrade";
+  static constexpr const char *HEADER_CONNECTION = "Connection";
+  static constexpr const char *HEADER_HOST = "Host";
+  static constexpr const char *HEADER_ORIGIN = "Origin";
+  static constexpr const char *HEADER_SERVERS = "Server";
 
   static constexpr const char *HEADER_HTTP_NEWLINE = "\r\n";
   static constexpr const size_t HEADER_HTTP_NEWLINE_LEN = 2;
@@ -283,15 +283,11 @@ namespace coypu::http::websocket
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
-      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_HOST, host.c_str());
-      _logger->debug(keyHeader);
-      con->_writeBuf->Push(keyHeader, r);
-
       r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_UPGRADE, "websocket");
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
-      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_CONNECTION, "Upgrade");
+      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_HOST, host.c_str());
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
@@ -305,6 +301,10 @@ namespace coypu::http::websocket
 
       EVP_EncodeBlock(con->_key, randkey, WS_SEC_KEY_LEN);
       r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_SEC_WEBSOCKET_KEY, con->_key);
+      _logger->debug(keyHeader);
+      con->_writeBuf->Push(keyHeader, r);
+
+      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_CONNECTION, "Upgrade");
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
