@@ -71,10 +71,10 @@ namespace coypu::http::websocket
   static constexpr int WS_SEC_KEY_LEN = 16;
   static constexpr int WS_SEC_KEY_SIZE = 1 + (((WS_SEC_KEY_LEN / 3) + 1) * 4);
 
-  static constexpr const char *HEADER_SEC_WEBSOCKET_PROTOCOL = "sec-websocket-protocol";
-  static constexpr const char *HEADER_SEC_WEBSOCKET_KEY = "sec-websocket-key";
-  static constexpr const char *HEADER_SEC_WEBSOCKET_ACCEPT = "sec-websocket-accept";
-  static constexpr const char *HEADER_SEC_WEBSOCKET_VERSION = "sec-websocket-version";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_PROTOCOL = "Sec-Websocket-Protocol";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_KEY = "Sec-Websocket-Key";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_ACCEPT = "Sec-Websocket-Accept";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_VERSION = "Sec-Websocket-Version";
   static constexpr const char *HEADER_UPGRADE = "Upgrade";
   static constexpr const char *HEADER_CONNECTION = "Connection";
   static constexpr const char *HEADER_HOST = "Host";
@@ -295,12 +295,12 @@ namespace coypu::http::websocket
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
-      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_SEC_WEBSOCKET_VERSION, WS_VERSION);
+      EVP_EncodeBlock(con->_key, randkey, WS_SEC_KEY_LEN);
+      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_SEC_WEBSOCKET_KEY, con->_key);
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
-      EVP_EncodeBlock(con->_key, randkey, WS_SEC_KEY_LEN);
-      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_SEC_WEBSOCKET_KEY, con->_key);
+      r = snprintf(keyHeader, 1024, "%s: %s\r\n", HEADER_SEC_WEBSOCKET_VERSION, WS_VERSION);
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
