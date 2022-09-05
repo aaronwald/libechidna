@@ -1117,7 +1117,7 @@ namespace coypu::store
 
     int Register(int fd, uint64_t offset)
     {
-      if (fd + 1 > _curOffsets.size())
+      if (static_cast<size_t>(fd + 1) > _curOffsets.size())
       {
         _curOffsets.resize(fd + 1, UINT64_MAX);
       }
@@ -1128,7 +1128,7 @@ namespace coypu::store
 
     bool Mark(int fd, uint64_t offset)
     {
-      if (fd < _curOffsets.size())
+      if (static_cast<size_t>(fd) < _curOffsets.size())
       {
         _curOffsets[fd] = offset;
         return true;
@@ -1138,7 +1138,7 @@ namespace coypu::store
 
     bool MarkEnd(int fd)
     {
-      if (fd < _curOffsets.size())
+      if (static_cast<size_t>(fd) < _curOffsets.size())
       {
         _curOffsets[fd] = _stream->Available();
         return true;
@@ -1148,7 +1148,7 @@ namespace coypu::store
 
     int Unregister(int fd)
     {
-      if (fd >= _curOffsets.size())
+      if (static_cast<size_t>(fd) >= _curOffsets.size())
         return -3;
       _curOffsets[fd] = UINT64_MAX;
       return 0;
@@ -1157,7 +1157,7 @@ namespace coypu::store
     int Writev(typename S::offset_type size,
                int fd, std::function<int(int, const struct iovec *, int)> &cb)
     {
-      if (fd >= _curOffsets.size())
+      if (static_cast<size_t>(fd) >= _curOffsets.size())
         return -3;
       if (_curOffsets[fd] == UINT64_MAX)
         return 0; // no work
@@ -1181,7 +1181,7 @@ namespace coypu::store
 
     typename S::offset_type Available(int fd) const
     {
-      if (fd >= _curOffsets.size())
+      if (static_cast<size_t>(fd) >= _curOffsets.size())
         return 0;
       if (_curOffsets[fd] == UINT64_MAX)
         return 0; // unregistered
@@ -1205,7 +1205,7 @@ namespace coypu::store
 
     bool IsEmpty(int fd) const
     {
-      if (fd >= _curOffsets.size())
+      if (static_cast<size_t>(fd) >= _curOffsets.size())
         return true;
       if (_curOffsets[fd] == UINT64_MAX)
         return true; // unregistered
