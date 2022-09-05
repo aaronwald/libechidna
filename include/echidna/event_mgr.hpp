@@ -78,7 +78,7 @@ namespace coypu::event
       cb->_wf = write_func;
       cb->_rf = read_func;
       cb->_fd = fd;
-      while (_fdToCB.size() < fd + 1)
+      while (_fdToCB.size() < static_cast<size_t>(fd + 1))
       {
         _fdToCB.resize(_fdToCB.size() + _growSize, _emptyCB);
         _fdEvents.resize(_fdEvents.size() + _growSize, 0);
