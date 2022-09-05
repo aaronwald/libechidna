@@ -302,7 +302,7 @@ namespace coypu::event
       if (r > 0)
       {
         assert(r == sizeof(uint64_t));
-        if (r < sizeof(uint64_t))
+        if (static_cast<size_t>(r) < sizeof(uint64_t))
           return -128;
 
         while (!_queue.empty())
@@ -333,7 +333,7 @@ namespace coypu::event
       if (r > 0)
       {
         assert(r == sizeof(uint64_t));
-        if (r < sizeof(uint64_t))
+        if (static_cast<size_t>(r) < sizeof(uint64_t))
           return -128;
         return 0;
       }
