@@ -297,8 +297,8 @@ namespace coypu::store
       if (!_dataPage.first)
         return false;
 
-      if ((offset >= _dataPage.second) &&
-          (offset <= (_dataPage.second + _pageSize)))
+      if (static_cast<uint64_t>(offset >= _dataPage.second) &&
+          static_cast<uint64_t>(offset <= (_dataPage.second + _pageSize)))
       {
         d = _dataPage.first[offset - _dataPage.second];
         return true;
