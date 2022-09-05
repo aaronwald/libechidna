@@ -137,7 +137,7 @@ namespace coypu::net::ssl
 										SSL_get_verify_mode(ssl),
 										fd);
 
-			if (fd + 1 > _fdToCon.size())
+			if (static_cast<size_t>(fd + 1) > _fdToCon.size())
 			{
 				_fdToCon.resize(fd + 1, nullptr);
 			}
@@ -156,7 +156,7 @@ namespace coypu::net::ssl
 
 		int Unregister(int fd)
 		{
-			if (fd >= _fdToCon.size())
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
 			if (!_fdToCon[fd])
 				return -2;
@@ -173,7 +173,7 @@ namespace coypu::net::ssl
 
 		int ReadNonBlock(int fd, void *buf, size_t len)
 		{
-			if (fd >= _fdToCon.size())
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
 			if (!_fdToCon[fd])
 				return -2;
@@ -207,7 +207,7 @@ namespace coypu::net::ssl
 
 		int WriteNonBlock(int fd, const void *buf, size_t len)
 		{
-			if (fd >= _fdToCon.size())
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
 			if (!_fdToCon[fd])
 				return -2;
@@ -244,7 +244,7 @@ namespace coypu::net::ssl
 		{
 			if (count <= 0)
 				return -5;
-			if (fd >= _fdToCon.size())
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
 			if (!_fdToCon[fd])
 				return -2;
@@ -303,7 +303,7 @@ namespace coypu::net::ssl
 		{
 			if (count <= 0)
 				return -5;
-			if (fd >= _fdToCon.size())
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
 			if (!_fdToCon[fd])
 				return -2;
