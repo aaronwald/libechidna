@@ -583,6 +583,7 @@ namespace coypu::http::websocket
 
           buf->Pop(data, offset, con->_frame._len); // copy
           bool b = Queue(con->_fd, WS_OP_PONG, data, con->_frame._len);
+          (void)b;
           assert(b);
         }
         else if (con->_frame._opcode == WS_OP_PONG)
