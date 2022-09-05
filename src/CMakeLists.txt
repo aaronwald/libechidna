@@ -5,6 +5,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${libechidna_SOURCE_DIR}/include/echidn
 
 # Make an automatic library - will be static or dynamic based on user setting
 add_library(echidna string-util.cpp buf.cpp file.cpp config.cpp tcp.cpp udp.cpp mem.cpp event_hlpr.cpp event_mgr.cpp store.cpp pipeline.cpp websocket.cpp openssl_mgr.cpp ${HEADER_LIST})
+target_compile_options(echidna PRIVATE -Werror -Wall -Wextra)
 
 # We need this directory, and users of our library will need it too
 target_include_directories(echidna PUBLIC ../include)

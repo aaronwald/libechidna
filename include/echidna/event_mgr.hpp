@@ -295,7 +295,7 @@ namespace coypu::event
       return false;
     }
 
-    int Read(int fd)
+    int Read(int fd [[maybe_unused]])
     {
       uint64_t u = UINT64_MAX;
       int r = ::read(_fd, &u, sizeof(uint64_t));
@@ -324,7 +324,7 @@ namespace coypu::event
       return r;
     }
 
-    int Write(int fd)
+    int Write(int fd [[maybe_unused]])
     {
       // write queue
       uint64_t u = _queue.size();
@@ -342,7 +342,7 @@ namespace coypu::event
       return -1;
     }
 
-    int Close(int fd)
+    int Close(int fd [[maybe_unused]])
     {
       // nop ?? error
       return -1;

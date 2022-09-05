@@ -433,7 +433,7 @@ namespace coypu::store
     typedef uint32_t page_offset_type;
     typedef uint64_t offset_type;
 
-    OneShotCache(off64_t pageSize, off64_t maxSize, int fd) : _pageSize(pageSize)
+    OneShotCache(off64_t pageSize, off64_t maxSize [[maybe_unused]], int fd [[maybe_unused]]) : _pageSize(pageSize)
     {
     }
 
@@ -915,13 +915,13 @@ namespace coypu::store
       return _writeBuf.SetPosition(offset);
     }
 
-    bool Backup(int count)
+    bool Backup(int count [[maybe_unused]])
     {
       assert(false);
       return true;
     }
 
-    bool Skip(int count)
+    bool Skip(int count [[maybe_unused]])
     {
       assert(false);
 

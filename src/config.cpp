@@ -8,16 +8,16 @@
 
 using namespace coypu::config;
 
-std::shared_ptr<CoypuConfig> CoypuConfig::Parse (const std::string &file)
+std::shared_ptr<CoypuConfig> CoypuConfig::Parse(const std::string &file)
 {
-    yaml_parser_t parser;
+	yaml_parser_t parser;
 	yaml_event_t event;
 
 	FILE *input = ::fopen(file.c_str(), "rb");
 	if (!input)
 	{
 		fprintf(stderr, "Unable to open '%s'\n", file.c_str());
-        return nullptr;
+		return nullptr;
 	}
 
 	if (!yaml_parser_initialize(&parser))
@@ -37,75 +37,79 @@ std::shared_ptr<CoypuConfig> CoypuConfig::Parse (const std::string &file)
 	while (!done)
 	{
 		/* Get the next event. */
-		if (!yaml_parser_parse(&parser, &event)) {
-			printf ("yaml error [%d] %s\n", parser.error, parser.problem);
+		if (!yaml_parser_parse(&parser, &event))
+		{
+			printf("yaml error [%d] %s\n", parser.error, parser.problem);
 			done = true;
-            fail = true;
-		} else {
-			switch (event.type) {
-				case YAML_SEQUENCE_START_EVENT:
-				{
-					assert(curConfig != nullptr);
-					configStack.push_back(curConfig);
-					std::shared_ptr<CoypuConfig> lastConfig = curConfig;
-					curConfig =  std::shared_ptr<CoypuConfig>(new CoypuConfig(CoypuConfig::CCT_SEQUENCE));
-					lastConfig->Add(curConfig);
-				}
-				break;
+			fail = true;
+		}
+		else
+		{
+			switch (event.type)
+			{
+			case YAML_SEQUENCE_START_EVENT:
+			{
+				assert(curConfig != nullptr);
+				configStack.push_back(curConfig);
+				std::shared_ptr<CoypuConfig> lastConfig = curConfig;
+				curConfig = std::shared_ptr<CoypuConfig>(new CoypuConfig(CoypuConfig::CCT_SEQUENCE));
+				lastConfig->Add(curConfig);
+			}
+			break;
 
-				case YAML_SEQUENCE_END_EVENT:
-				{
-					assert(configStack.size() > 0);
-					curConfig = configStack.back();
-					assert(curConfig != nullptr);
-					configStack.pop_back();
-				}
-				break;
+			case YAML_SEQUENCE_END_EVENT:
+			{
+				assert(configStack.size() > 0);
+				curConfig = configStack.back();
+				assert(curConfig != nullptr);
+				configStack.pop_back();
+			}
+			break;
 
-				case YAML_MAPPING_START_EVENT:
-				{
-					assert(curConfig != nullptr);
-					configStack.push_back(curConfig);
+			case YAML_MAPPING_START_EVENT:
+			{
+				assert(curConfig != nullptr);
+				configStack.push_back(curConfig);
 
-					std::shared_ptr<CoypuConfig> lastConfig = curConfig;
-                    curConfig =  std::shared_ptr<CoypuConfig>(new CoypuConfig(CoypuConfig::CCT_MAP));
+				std::shared_ptr<CoypuConfig> lastConfig = curConfig;
+				curConfig = std::shared_ptr<CoypuConfig>(new CoypuConfig(CoypuConfig::CCT_MAP));
 
-					lastConfig->Add(curConfig);
+				lastConfig->Add(curConfig);
+			}
+			break;
 
-				}
-				break;
+			case YAML_MAPPING_END_EVENT:
+			{
+				assert(configStack.size() > 0);
+				curConfig = configStack.back();
+				assert(curConfig != nullptr);
+				configStack.pop_back();
+			}
+			break;
 
-				case YAML_MAPPING_END_EVENT:
-				{
-					assert(configStack.size() > 0);
-					curConfig = configStack.back();
-					assert(curConfig != nullptr);
-					configStack.pop_back();
-				}
-				break;
+			case YAML_ALIAS_EVENT:
+			{
+				assert(false);
+			}
+			break;
 
-				case YAML_ALIAS_EVENT: {
-					assert(false);
-				}
-				break;
+			case YAML_SCALAR_EVENT:
+			{
+				std::shared_ptr<CoypuConfig> sp(new CoypuConfig(std::string(reinterpret_cast<char *>(event.data.scalar.value))));
+				curConfig->Add(sp);
+			}
+			break;
 
-				case YAML_SCALAR_EVENT:
-				{
-                    std::shared_ptr<CoypuConfig> sp(new CoypuConfig(std::string(reinterpret_cast<char *>(event.data.scalar.value))));
-					curConfig->Add(sp);
-				}
-				break;
+			case YAML_STREAM_END_EVENT:
+			{
+				done = true;
+			}
+			break;
 
-				case YAML_STREAM_END_EVENT:
-				{
-					done = true;
-				}
-				break;
-
-				case YAML_NO_EVENT:
-				case YAML_STREAM_START_EVENT:
-				case YAML_DOCUMENT_START_EVENT:
-				case YAML_DOCUMENT_END_EVENT:
+			case YAML_NO_EVENT:
+			case YAML_STREAM_START_EVENT:
+			case YAML_DOCUMENT_START_EVENT:
+			case YAML_DOCUMENT_END_EVENT:
 				break;
 			}
 		}
@@ -117,40 +121,47 @@ std::shared_ptr<CoypuConfig> CoypuConfig::Parse (const std::string &file)
 
 	::fclose(input);
 
-    if (fail) return nullptr;
+	if (fail)
+		return nullptr;
 
-    return rootConfig;
+	return rootConfig;
 }
 
-	template <>
-	  const bool CoypuConfig::GetValue<bool> (const std::string & key, bool &out) {
-	  auto i = _maps.find(key);
-	  if (i != _maps.end()) {
-	    out =  (*i).second->GetValue() == "true" || (*i).second->GetValue() == "TRUE";
-	    return true;
-	  }
-
-	  return false;
+template <>
+bool CoypuConfig::GetValue<bool>(const std::string &key, bool &out)
+{
+	auto i = _maps.find(key);
+	if (i != _maps.end())
+	{
+		out = (*i).second->GetValue() == "true" || (*i).second->GetValue() == "TRUE";
+		return true;
 	}
 
-	template <>
-	  const bool CoypuConfig::GetValue<int> (const std::string & key, int &out) {
-	  auto i = _maps.find(key);
-	  if (i != _maps.end()) {
-	    out = std::atoi((*i).second->GetValue().c_str());
-	    return true;
-	  }
+	return false;
+}
 
-	  return false;
+template <>
+bool CoypuConfig::GetValue<int>(const std::string &key, int &out)
+{
+	auto i = _maps.find(key);
+	if (i != _maps.end())
+	{
+		out = std::atoi((*i).second->GetValue().c_str());
+		return true;
 	}
 
-	template <>
-	  const bool CoypuConfig::GetValue<std::string> (const std::string & key, std::string &out) {
-	  auto i = _maps.find(key);
-	  if (i != _maps.end()) {
-	    out =  (*i).second->GetValue();
-	    return true;
-	  }
+	return false;
+}
 
-	  return false;
+template <>
+bool CoypuConfig::GetValue<std::string>(const std::string &key, std::string &out)
+{
+	auto i = _maps.find(key);
+	if (i != _maps.end())
+	{
+		out = (*i).second->GetValue();
+		return true;
 	}
+
+	return false;
+}

@@ -139,12 +139,12 @@ int MMapShared::Truncate(int fd, off64_t offset)
   return FileUtil::Truncate(fd, offset);
 }
 
-void *MMapAnon::MMapWrite(int fd, off64_t offset, size_t len)
+void *MMapAnon::MMapWrite(int fd [[maybe_unused]], off64_t offset [[maybe_unused]], size_t len)
 {
   return ::mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
-void *MMapAnon::MMapRead(int fd, off64_t offset, size_t len)
+void *MMapAnon::MMapRead(int fd [[maybe_unused]], off64_t offset [[maybe_unused]], size_t len)
 {
   return ::mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
