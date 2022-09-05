@@ -84,7 +84,7 @@ namespace coypu::event
         _fdEvents.resize(_fdEvents.size() + _growSize, 0);
       }
 
-      assert(fd < _fdToCB.capacity());
+      assert(static_cast<size_t>(fd) < _fdToCB.capacity());
       assert(_fdToCB[fd].get() == nullptr);
       _fdToCB[fd] = cb;
       _fdEvents[fd] = 0; // reset

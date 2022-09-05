@@ -359,7 +359,7 @@ namespace coypu::store
         return false;
       }
 
-      if (start < _dataPage.second || start > (_dataPage.second + _pageSize))
+      if (start < static_cast<uint64_t>(_dataPage.second) || start > static_cast<uint64_t>(_dataPage.second + _pageSize))
         return false;
 
       outSize = std::min(size, _pageSize - (start - _dataPage.second));
