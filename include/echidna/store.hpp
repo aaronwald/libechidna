@@ -274,7 +274,7 @@ namespace coypu::store
 
     int Map(int fd, uint64_t offset)
     {
-      if (_dataPage.second != offset)
+      if (static_cast<uint64_t>(_dataPage.second) != offset)
       {
         MMapProvider::MUnmap(_dataPage.first, _pageSize);
 
