@@ -8,9 +8,9 @@
 #include <vector>
 #include <memory>
 #include <functional>
-#include <sys/epoll.h>
 #include <deque>
 #include <set>
+#include <sys/epoll.h>
 
 #include "event_hlpr.hpp"
 
