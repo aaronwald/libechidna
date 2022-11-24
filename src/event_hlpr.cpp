@@ -233,11 +233,11 @@ int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *
 }
 
 // io_vecs cant go away
-int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd)
+int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs)
 {
   (void)ring;
   (void)file_fd;
-  // (void)iovecs;
+  (void)iovecs;
   // (void)len;
   // (void)userdata;
   return 0;
