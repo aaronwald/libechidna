@@ -235,7 +235,13 @@ int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *
 // io_vecs cant go away
 int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata)
 {
-  return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
+  (void)ring;
+  (void)file_fd;
+  (void)iovecs;
+  (void)len;
+  (void)userdata;
+  return 0;
+  // return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
 
 void IOURingHelper::ReadCompletion(coypu_io_uring &ring)
