@@ -97,14 +97,13 @@ int SignalFDHelper::BlockAllSignals()
 }
 
 // https://unixism.net/loti/low_level.html
-int IOURingHelper::Create(coypu_io_uring &ring)
+int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
 {
   struct io_uring_params params;
   memset(&params, 0, sizeof(params));
   // params.sq_thread_cpu - set cpu
   // params.sq_thread_idle - idle milliseconds
 
-  uint32_t entries = 1024; // power of 2
   ring._fd = io_uring_setup(entries, &params);
   if (ring._fd < 0)
   {
@@ -228,18 +227,18 @@ int Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec iovecs[
 }
 
 // io_vecs cant go away
-int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata)
+int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata)
 {
   return Submit(ring, file_fd, IORING_OP_READV, iovecs, len, userdata);
 }
 
 // io_vecs cant go away
-int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata)
+int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata)
 {
   return Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
 
-void ReadCompletion(coypu_io_uring &ring)
+void IOURingHelper::ReadCompletion(coypu_io_uring &ring)
 {
   struct io_uring_cqe *cqe __attribute__((unused));
   unsigned head;
@@ -259,6 +258,7 @@ void ReadCompletion(coypu_io_uring &ring)
     /* Get the entry */
     cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
     // cqe->user_data
+    // lambda? on_cqe(user_data);
 
     head++;
   } while (1);

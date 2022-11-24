@@ -51,8 +51,10 @@ namespace coypu::event
 	class IOURingHelper
 	{
 	public:
-		static int Create(coypu_io_uring &ring);
-
+		static int Create(coypu_io_uring &ring, uint32_t entries = 1024);
+		int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata);
+		int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata);
+		void ReadCompletion(coypu_io_uring &ring);
 		// SubmitReadV
 		// SubmitWriteV
 
