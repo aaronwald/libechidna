@@ -182,7 +182,7 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
   return 0;
 }
 
-int Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec iovecs[], uint32_t len, void *userdata)
+int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec iovecs[], uint32_t len, void *userdata)
 {
   unsigned next_tail, tail, index;
   next_tail = tail = *ring._sq_ring.tail;
