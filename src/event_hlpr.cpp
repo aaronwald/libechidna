@@ -229,19 +229,13 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struc
 // io_vecs cant go away
 int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata)
 {
-  return Submit(ring, file_fd, IORING_OP_READV, iovecs, len, userdata);
+  return IOURingHelper::Submit(ring, file_fd, IORING_OP_READV, iovecs, len, userdata);
 }
 
 // io_vecs cant go away
 int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata)
 {
-  return Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
-}
-
-int IOURingHelper::SubmitZoo(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata)
-{
-  (void)ring;
-  return 0;
+  return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
 
 void IOURingHelper::ReadCompletion(coypu_io_uring &ring)
