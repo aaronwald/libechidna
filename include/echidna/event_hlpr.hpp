@@ -56,12 +56,10 @@ namespace coypu::event
 		static int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata);
 
 		static void ReadCompletion(coypu_io_uring &ring);
-		// SubmitReadV
-		// SubmitWriteV
 
-	private:
 		static int Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec iovecs[], uint32_t len, void *userdata);
 
+	private:
 		IOURingHelper() = delete;
 	};
 
