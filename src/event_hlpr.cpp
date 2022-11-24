@@ -238,7 +238,7 @@ int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec 
   return Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
 
-int SubmitZoo(coypu_io_uring &ring)
+int IOURingHelper::SubmitZoo(coypu_io_uring &ring)
 {
   (void)ring;
   return 0;
