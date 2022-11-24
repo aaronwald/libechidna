@@ -238,6 +238,12 @@ int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec 
   return Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
 
+int SubmitZoo(coypu_io_uring &ring)
+{
+  (void)ring;
+  return 0;
+}
+
 void IOURingHelper::ReadCompletion(coypu_io_uring &ring)
 {
   struct io_uring_cqe *cqe __attribute__((unused));
