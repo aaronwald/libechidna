@@ -52,9 +52,9 @@ namespace coypu::event
 	{
 	public:
 		static int Create(coypu_io_uring &ring, uint32_t entries = 1024);
-		int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata);
-		int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata);
-		void ReadCompletion(coypu_io_uring &ring);
+		static int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata);
+		static int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata);
+		static void ReadCompletion(coypu_io_uring &ring);
 		// SubmitReadV
 		// SubmitWriteV
 
