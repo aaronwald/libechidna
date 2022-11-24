@@ -182,3 +182,87 @@ int IOURingHelper::Create(coypu_io_uring &ring)
 
   return 0;
 }
+
+int Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec iovecs[], uint32_t len, void *userdata)
+{
+  unsigned next_tail, tail, index;
+  next_tail = tail = *ring._sq_ring.tail;
+  next_tail++;
+  read_barrier();
+  index = tail & *ring._sq_ring.ring_mask;
+
+  // add a submittion request
+  struct io_uring_sqe *sqe = &ring._sqes[index];
+  sqe->fd = file_fd;
+  sqe->flags = 0;
+  sqe->opcode = op_code;
+  sqe->addr = (unsigned long)iovecs;
+  sqe->len = len;
+  sqe->off = 0;
+  sqe->user_data = (unsigned long long)userdata;
+  ring._sq_ring.array[index] = index;
+  tail = next_tail;
+
+  /* Update the tail so the kernel can see it. */
+  if (*ring._sq_ring.tail != tail)
+  {
+    *ring._sq_ring.tail = tail;
+    write_barrier();
+  }
+
+  /*
+   * Tell the kernel we have submitted events with the io_uring_enter() system
+   * call. We also pass in the IOURING_ENTER_GETEVENTS flag which causes the
+   * io_uring_enter() call to wait until min_complete events (the 3rd param)
+   * complete.
+   * */
+  int ret = io_uring_enter(ring._fd, 1, 1,
+                           IORING_ENTER_GETEVENTS);
+  if (ret < 0)
+  {
+    perror("io_uring_enter");
+    return -1;
+  }
+
+  return 0;
+}
+
+// io_vecs cant go away
+int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata)
+{
+  return Submit(ring, file_fd, IORING_OP_READV, iovecs, len, userdata);
+}
+
+// io_vecs cant go away
+int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec iovecs[], uint32_t len, void *userdata)
+{
+  return Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
+}
+
+void ReadCompletion(coypu_io_uring &ring)
+{
+  struct io_uring_cqe *cqe __attribute__((unused));
+  unsigned head;
+
+  head = *ring._cq_ring.head;
+
+  do
+  {
+    read_barrier();
+    /*
+     * Remember, this is a ring buffer. If head == tail, it means that the
+     * buffer is empty.
+     * */
+    if (head == *ring._cq_ring.tail)
+      break;
+
+    /* Get the entry */
+    cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
+    // cqe->user_data
+
+    head++;
+  } while (1);
+
+  *ring._cq_ring.head = head;
+  write_barrier();
+}

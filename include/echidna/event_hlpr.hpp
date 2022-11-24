@@ -53,6 +53,9 @@ namespace coypu::event
 	public:
 		static int Create(coypu_io_uring &ring);
 
+		// SubmitReadV
+		// SubmitWriteV
+
 	private:
 		IOURingHelper() = delete;
 	};
