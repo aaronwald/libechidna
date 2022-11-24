@@ -7,6 +7,7 @@
 #include <sys/timerfd.h>
 #include <sys/signalfd.h>
 #include <linux/io_uring.h>
+#include <sys/uio.h>
 
 namespace coypu::event
 {
