@@ -160,12 +160,12 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
     }
   }
 
-  ring._sq_ring.head = static_cast<unsigned int *>(sq_ptr) + params.sq_off.head;
-  ring._sq_ring.tail = static_cast<unsigned int *>(sq_ptr) + params.sq_off.tail;
-  ring._sq_ring.ring_mask = static_cast<unsigned int *>(sq_ptr) + params.sq_off.ring_mask;
-  ring._sq_ring.ring_entries = static_cast<unsigned int *>(sq_ptr) + params.sq_off.ring_entries;
-  ring._sq_ring.flags = static_cast<unsigned int *>(sq_ptr) + params.sq_off.flags;
-  ring._sq_ring.array = static_cast<unsigned int *>(sq_ptr) + params.sq_off.array;
+  ring._sq_ring.head = reinterpret_cast<unsigned *>((char *)sq_ptr + params.sq_off.head);
+  ring._sq_ring.tail = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.tail);
+  ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.ring_mask);
+  ring._sq_ring.ring_entries = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.ring_entries);
+  ring._sq_ring.flags = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.flags);
+  ring._sq_ring.array = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.array);
 
   /* Map in the submission queue entries array */
   ring._sqes = static_cast<struct io_uring_sqe *>(mmap(0, params.sq_entries * sizeof(struct io_uring_sqe),
