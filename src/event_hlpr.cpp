@@ -177,11 +177,11 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
     return -4;
   }
 
-  ring._cq_ring.head = static_cast<unsigned int *>(cq_ptr) + params.cq_off.head;
-  ring._cq_ring.tail = static_cast<unsigned int *>(cq_ptr) + params.cq_off.tail;
-  ring._cq_ring.ring_mask = static_cast<unsigned int *>(cq_ptr) + params.cq_off.ring_mask;
-  ring._cq_ring.ring_entries = static_cast<unsigned int *>(cq_ptr) + params.cq_off.ring_entries;
-  ring._cq_ring.cqes = static_cast<io_uring_cqe *>(cq_ptr) + params.cq_off.cqes;
+  ring._cq_ring.head = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.head);
+  ring._cq_ring.tail = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.tail);
+  ring._cq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.ring_mask);
+  ring._cq_ring.ring_entries = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.ring_entries);
+  ring._cq_ring.cqes = reinterpret_cast<io_uring_cqe *>((char *)cq_ptr + params.cq_off.cqes);
 
   return 0;
 }
