@@ -9,7 +9,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 endif()
 
 include(FetchContent)
-
 # BEGIN echidna
 add_subdirectory(src)
 

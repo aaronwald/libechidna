@@ -30,6 +30,7 @@ int io_uring_enter(int ring_fd, unsigned int to_submit,
 
 #define read_barrier() __asm__ __volatile__("" :: \
                                                 : "memory")
+
 #define write_barrier() __asm__ __volatile__("" :: \
                                                  : "memory")
 
@@ -116,6 +117,9 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
 
   // completion queue size
   int cring_sz = params.cq_off.cqes + params.cq_entries * sizeof(struct io_uring_cqe);
+
+  printf("sring_sz %d\n", sring_sz);
+  printf("cring_s %d\n", cring_sz);
 
   // IORING_FEAT_SINGLE_MMAP  combine mmaps
   if (params.features & IORING_FEAT_SINGLE_MMAP)
