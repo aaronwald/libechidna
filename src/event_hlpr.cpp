@@ -242,7 +242,7 @@ int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec 
   return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
 
-void IOURingHelper::ReadCompletion(coypu_io_uring &ring)
+void IOURingHelper::DrainCompletion(coypu_io_uring &ring, std::function<void(uint64_t)> &cb)
 {
   struct io_uring_cqe *cqe __attribute__((unused));
   unsigned head;
@@ -252,17 +252,14 @@ void IOURingHelper::ReadCompletion(coypu_io_uring &ring)
   do
   {
     read_barrier();
-    /*
-     * Remember, this is a ring buffer. If head == tail, it means that the
-     * buffer is empty.
-     * */
+
+    // empty
     if (head == *ring._cq_ring.tail)
       break;
 
     /* Get the entry */
     cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
-    // cqe->user_data
-    // lambda? on_cqe(user_data);
+    cb(cqe->user_data);
 
     head++;
   } while (1);
