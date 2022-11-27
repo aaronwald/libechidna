@@ -242,7 +242,7 @@ int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec 
   return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
 
-void IOURingHelper::DrainCompletion(coypu_io_uring &ring, std::function<void(uint64_t)> &cb)
+void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
 {
   struct io_uring_cqe *cqe __attribute__((unused));
   unsigned head;

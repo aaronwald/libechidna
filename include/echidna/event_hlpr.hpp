@@ -55,7 +55,7 @@ namespace coypu::event
 		static int Create(coypu_io_uring &ring, uint32_t entries = 1024);
 		static int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata);
 		static int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata);
-		static void DrainCompletion(coypu_io_uring &ring, std::function<void(uint64_t)> &cb);
+		static void DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb);
 
 	private:
 		IOURingHelper() = delete;
