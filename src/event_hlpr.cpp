@@ -186,7 +186,7 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
   return 0;
 }
 
-int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec *iovecs, uint32_t len, void *userdata)
+int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec *iovecs, uint32_t len, uint64_t userdata)
 {
   unsigned next_tail, tail, index;
   next_tail = tail = *ring._sq_ring.tail;
@@ -202,7 +202,7 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struc
   sqe->addr = (unsigned long)iovecs;
   sqe->len = len;
   sqe->off = 0;
-  sqe->user_data = (unsigned long long)userdata;
+  sqe->user_data = userdata;
   ring._sq_ring.array[index] = index;
   tail = next_tail;
 
@@ -231,13 +231,13 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struc
 }
 
 // io_vecs cant go away
-int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata)
+int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata)
 {
   return IOURingHelper::Submit(ring, file_fd, IORING_OP_READV, iovecs, len, userdata);
 }
 
 // io_vecs cant go away
-int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, void *userdata)
+int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata)
 {
   return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
 }
