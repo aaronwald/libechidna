@@ -131,6 +131,7 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
     cring_sz = sring_sz;
   }
 
+  // mmap some memory for submission and completion queues
   void *cq_ptr = nullptr;
   void *sq_ptr = mmap(0, sring_sz, PROT_READ | PROT_WRITE,
                       MAP_SHARED | MAP_POPULATE,
@@ -160,6 +161,7 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
     }
   }
 
+  // compute offsets for later
   ring._sq_ring.head = reinterpret_cast<unsigned *>((char *)sq_ptr + params.sq_off.head);
   ring._sq_ring.tail = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.tail);
   ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.ring_mask);
@@ -167,16 +169,18 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
   ring._sq_ring.flags = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.flags);
   ring._sq_ring.array = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.array);
 
-  /* Map in the submission queue entries array */
+  // Map in the submission queue entries array
   ring._sqes = static_cast<struct io_uring_sqe *>(mmap(0, params.sq_entries * sizeof(struct io_uring_sqe),
                                                        PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
                                                        ring._fd, IORING_OFF_SQES));
   if (ring._sqes == MAP_FAILED)
   {
     perror("mmap");
+    close(ring._fd);
     return -4;
   }
 
+  // compute offsets for later
   ring._cq_ring.head = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.head);
   ring._cq_ring.tail = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.tail);
   ring._cq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.ring_mask);
@@ -193,6 +197,8 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struc
   next_tail++;
   read_barrier();
   index = tail & *ring._sq_ring.ring_mask;
+
+  // TODO check there is space?
 
   // add a submittion request
   struct io_uring_sqe *sqe = &ring._sqes[index];
@@ -219,9 +225,12 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struc
    * io_uring_enter() call to wait until min_complete events (the 3rd param)
    * complete.
    * */
-  int ret = io_uring_enter(ring._fd, 1, 1,
-                           IORING_ENTER_GETEVENTS);
-  if (ret < 0)
+  int to_submit = 1;
+  int min_complete = 1;
+
+  // if this returns ok, then it's safe to assume
+  int consumed = io_uring_enter(ring._fd, to_submit, min_complete, IORING_ENTER_GETEVENTS);
+  if (consumed < 0)
   {
     perror("io_uring_enter");
     return -1;
