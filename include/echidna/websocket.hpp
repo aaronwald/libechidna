@@ -280,7 +280,7 @@ namespace coypu::http::websocket
 
       std::shared_ptr<con_type> &con = (*x).second;
       char keyHeader[1024];
-      int r = r = snprintf(keyHeader, 1024, "GET %s HTTP/1.1\r\n", uri.c_str());
+      int r = snprintf(keyHeader, 1024, "GET %s HTTP/1.1\r\n", uri.c_str());
       _logger->debug(keyHeader);
       con->_writeBuf->Push(keyHeader, r);
 
@@ -850,11 +850,13 @@ namespace coypu::http::websocket
         {
           r = DoOpen(con->_httpBuf, con);
         }
-        if (r == 0)
+	
+        if (r == 0) 
           return false;
         else if (con->_state != WS_CS_OPEN_DATA)
           return false; // wait for more data
         // ALLOW TO FALL THROUGH
+	[[fallthrough]];
       }
 
       case WS_CS_OPEN_DATA:
