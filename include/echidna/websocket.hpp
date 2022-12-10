@@ -523,12 +523,12 @@ namespace coypu::http::websocket
 
     static bool ComputeKey(const std::string &in, std::string &out)
     {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-      size_t mdlen = 0;
-      unsigned char sha1[EVP_MAX_MD_SIZE];
-      if (!EVP_Q_digest(nullptr, "SHA1", nullptr, in.c_str(), in.size(), sha1, &mdlen))
-        return false;
-#else
+      // #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+      //       size_t mdlen = 0;
+      //       unsigned char sha1[EVP_MAX_MD_SIZE];
+      //       if (!EVP_Q_digest(nullptr, "SHA1", nullptr, in.c_str(), in.size(), sha1, &mdlen))
+      //         return false;
+      // #else
       SHA_CTX ctx;
       if (!SHA1_Init(&ctx))
         return false;
@@ -537,7 +537,7 @@ namespace coypu::http::websocket
       unsigned char sha1[SHA_DIGEST_LENGTH] = {};
       if (!SHA1_Final(sha1, &ctx))
         return false;
-#endif
+      // #endif
 
       constexpr int sfsize = 1 + (((SHA_DIGEST_LENGTH / 3) + 1) * 4);
       unsigned char base64[sfsize] = {};
@@ -855,8 +855,8 @@ namespace coypu::http::websocket
           return false;
         else if (con->_state != WS_CS_OPEN_DATA)
           return false; // wait for more data
-        // ALLOW TO FALL THROUGH
-	[[fallthrough]];
+                        // ALLOW TO FALL THROUGH
+        [[fallthrough]];
       }
 
       case WS_CS_OPEN_DATA:
