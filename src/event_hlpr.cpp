@@ -3,10 +3,36 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/signalfd.h>
+#include <sys/mman.h>
 #include <string.h>
 #include <iostream>
+#include <linux/io_uring.h>
+
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <errno.h>
 
 #include "echidna/event_hlpr.hpp"
+
+int io_uring_setup(unsigned int entries, struct io_uring_params *p)
+{
+  return syscall(__NR_io_uring_setup, entries, p);
+}
+
+int io_uring_enter(int ring_fd, unsigned int to_submit,
+                   unsigned int min_complete, unsigned int flags)
+{
+  return (int)syscall(__NR_io_uring_enter, ring_fd, to_submit, min_complete,
+                      flags, NULL, 0);
+}
+
+#define read_barrier() __asm__ __volatile__("" :: \
+                                                : "memory")
+
+#define write_barrier() __asm__ __volatile__("" :: \
+                                                 : "memory")
 
 using namespace coypu::event;
 
@@ -69,4 +95,184 @@ int SignalFDHelper::BlockAllSignals()
   sigset_t mask;
   ::sigfillset(&mask);
   return ::sigprocmask(SIG_SETMASK, &mask, NULL); // set mask blocks these signals
+}
+
+// https://unixism.net/loti/low_level.html
+int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
+{
+  struct io_uring_params params;
+  memset(&params, 0, sizeof(params));
+  // params.sq_thread_cpu - set cpu
+  // params.sq_thread_idle - idle milliseconds
+
+  ring._fd = io_uring_setup(entries, &params);
+  if (ring._fd < 0)
+  {
+    perror("Failed to create io_uring_setup");
+    return -1;
+  }
+
+  // submission queue size
+  int sring_sz = params.sq_off.array + params.sq_entries * sizeof(unsigned);
+
+  // completion queue size
+  int cring_sz = params.cq_off.cqes + params.cq_entries * sizeof(struct io_uring_cqe);
+
+  printf("sring_sz %d\n", sring_sz);
+  printf("cring_s %d\n", cring_sz);
+
+  // IORING_FEAT_SINGLE_MMAP  combine mmaps
+  if (params.features & IORING_FEAT_SINGLE_MMAP)
+  {
+    if (cring_sz > sring_sz)
+    {
+      sring_sz = cring_sz;
+    }
+    cring_sz = sring_sz;
+  }
+
+  // mmap some memory for submission and completion queues
+  void *cq_ptr = nullptr;
+  void *sq_ptr = mmap(0, sring_sz, PROT_READ | PROT_WRITE,
+                      MAP_SHARED | MAP_POPULATE,
+                      ring._fd, IORING_OFF_SQ_RING);
+  if (sq_ptr == MAP_FAILED)
+  {
+    perror("mmap");
+    close(ring._fd);
+    return -2;
+  }
+
+  if (params.features & IORING_FEAT_SINGLE_MMAP)
+  {
+    cq_ptr = sq_ptr;
+  }
+  else
+  {
+    /* Map in the completion queue ring buffer in older kernels separately */
+    cq_ptr = mmap(0, cring_sz, PROT_READ | PROT_WRITE,
+                  MAP_SHARED | MAP_POPULATE,
+                  ring._fd, IORING_OFF_CQ_RING);
+    if (cq_ptr == MAP_FAILED)
+    {
+      perror("mmap");
+      close(ring._fd);
+      return -3;
+    }
+  }
+
+  // compute offsets for later
+  ring._sq_ring.head = reinterpret_cast<unsigned *>((char *)sq_ptr + params.sq_off.head);
+  ring._sq_ring.tail = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.tail);
+  ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.ring_mask);
+  ring._sq_ring.ring_entries = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.ring_entries);
+  ring._sq_ring.flags = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.flags);
+  ring._sq_ring.array = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.array);
+
+  // Map in the submission queue entries array
+  ring._sqes = static_cast<struct io_uring_sqe *>(mmap(0, params.sq_entries * sizeof(struct io_uring_sqe),
+                                                       PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
+                                                       ring._fd, IORING_OFF_SQES));
+  if (ring._sqes == MAP_FAILED)
+  {
+    perror("mmap");
+    close(ring._fd);
+    return -4;
+  }
+
+  // compute offsets for later
+  ring._cq_ring.head = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.head);
+  ring._cq_ring.tail = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.tail);
+  ring._cq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.ring_mask);
+  ring._cq_ring.ring_entries = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.ring_entries);
+  ring._cq_ring.cqes = reinterpret_cast<io_uring_cqe *>((char *)cq_ptr + params.cq_off.cqes);
+
+  return 0;
+}
+
+int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec *iovecs, uint32_t len, uint64_t userdata)
+{
+  unsigned next_tail, tail, index;
+  next_tail = tail = *ring._sq_ring.tail;
+  next_tail++;
+  read_barrier();
+  index = tail & *ring._sq_ring.ring_mask;
+
+  // TODO check there is space?
+
+  // add a submittion request
+  struct io_uring_sqe *sqe = &ring._sqes[index];
+  sqe->fd = file_fd;
+  sqe->flags = 0;
+  sqe->opcode = op_code;
+  sqe->addr = (unsigned long)iovecs;
+  sqe->len = len;
+  sqe->off = 0;
+  sqe->user_data = userdata;
+  ring._sq_ring.array[index] = index;
+  tail = next_tail;
+
+  /* Update the tail so the kernel can see it. */
+  if (*ring._sq_ring.tail != tail)
+  {
+    *ring._sq_ring.tail = tail;
+    write_barrier();
+  }
+
+  /*
+   * Tell the kernel we have submitted events with the io_uring_enter() system
+   * call. We also pass in the IOURING_ENTER_GETEVENTS flag which causes the
+   * io_uring_enter() call to wait until min_complete events (the 3rd param)
+   * complete.
+   * */
+  int to_submit = 1;
+  int min_complete = 1;
+
+  // if this returns ok, then it's safe to assume
+  int consumed = io_uring_enter(ring._fd, to_submit, min_complete, IORING_ENTER_GETEVENTS);
+  if (consumed < 0)
+  {
+    perror("io_uring_enter");
+    return -1;
+  }
+
+  return 0;
+}
+
+// io_vecs cant go away
+int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata)
+{
+  return IOURingHelper::Submit(ring, file_fd, IORING_OP_READV, iovecs, len, userdata);
+}
+
+// io_vecs cant go away
+int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata)
+{
+  return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
+}
+
+void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
+{
+  struct io_uring_cqe *cqe __attribute__((unused));
+  unsigned head;
+
+  head = *ring._cq_ring.head;
+
+  do
+  {
+    read_barrier();
+
+    // empty
+    if (head == *ring._cq_ring.tail)
+      break;
+
+    /* Get the entry */
+    cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
+    cb(cqe->user_data);
+
+    head++;
+  } while (1);
+
+  *ring._cq_ring.head = head;
+  write_barrier();
 }

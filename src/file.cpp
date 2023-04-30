@@ -116,12 +116,12 @@ int MMapShared::GetSize(int fd, off64_t &offset)
 
 void *MMapShared::MMapWrite(int fd, off64_t offset, size_t len)
 {
-  return ::mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
+  return ::mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, fd, offset);
 }
 
 void *MMapShared::MMapRead(int fd, off64_t offset, size_t len)
 {
-  return ::mmap(nullptr, len, PROT_READ, MAP_SHARED, fd, offset);
+  return ::mmap(nullptr, len, PROT_READ, MAP_SHARED | MAP_POPULATE, fd, offset);
 }
 
 int MMapShared::MUnmap(void *addr, size_t len)
@@ -141,12 +141,12 @@ int MMapShared::Truncate(int fd, off64_t offset)
 
 void *MMapAnon::MMapWrite(int fd [[maybe_unused]], off64_t offset [[maybe_unused]], size_t len)
 {
-  return ::mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  return ::mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
 }
 
 void *MMapAnon::MMapRead(int fd [[maybe_unused]], off64_t offset [[maybe_unused]], size_t len)
 {
-  return ::mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  return ::mmap(nullptr, len, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
 }
 
 int MMapAnon::MUnmap(void *addr, size_t len)
