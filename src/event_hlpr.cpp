@@ -321,11 +321,12 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, void 
 // for our bip buf we can submit a readv on our underlying bipbuf code
 int IOURingHelper::SubmitNop(coypu_io_uring &ring, uint64_t userdata)
 {
-  struct io_uring_sqe sqe;
-  ::memset(&sqe, 0, sizeof(sqe));
-  sqe.opcode = IORING_OP_NOP;                   // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
-  sqe.user_data = (unsigned long long)userdata; // user data
-  return add_to_sqe(ring, &sqe);
+  // struct io_uring_sqe sqe;
+  // ::memset(&sqe, 0, sizeof(sqe));
+  // sqe.opcode = IORING_OP_NOP;                   // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  // sqe.user_data = (unsigned long long)userdata; // user data
+  // return add_to_sqe(ring, &sqe);
+  return IOURingHelper::Submit(ring, 0, IORING_OP_NOP, nullptr, 0, userdata);
 }
 
 int IOURingHelper::SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata)
