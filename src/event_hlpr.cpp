@@ -306,7 +306,7 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, void 
   if (flags & IORING_SQ_NEED_WAKEUP)
   {
     // if this returns ok, then it's safe to assume
-    int consumed = io_uring_enter(ring._fd, to_submit, min_complete, 0, nullptr /* sig*/);
+    int consumed = io_uring_enter(ring._fd, to_submit, min_complete, IORING_ENTER_SQ_WAKEUP, nullptr /* sig*/);
     printf("io_uring_enter consumed %d\n", consumed);
     if (consumed < 0)
     {
@@ -330,7 +330,17 @@ int IOURingHelper::SubmitNop(coypu_io_uring &ring, uint64_t userdata)
 
 int IOURingHelper::SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata)
 {
-  return Submit(ring, 0, IORING_OP_TIMEOUT, ts, 1, userdata);
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.fd = 0;
+  sqe.flags = 0;
+  sqe.opcode = IORING_OP_TIMEOUT; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.addr = (unsigned long long)ts;
+  sqe.len = 1;
+  sqe.off = 0;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  sqe.timeout_flags = 0;                        // relative
+  return add_to_sqe(ring, &sqe);
 }
 
 // io_vecs cant go away
