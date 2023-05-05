@@ -227,6 +227,43 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries, int32_t cpu)
   return 0;
 }
 
+int add_to_sqe(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
+{
+  unsigned index = 0, tail = 0, next_tail = 0;
+
+  /* Add our submission queue entry to the tail of the SQE ring buffer */
+  next_tail = tail = *ring._sq_ring.tail;
+  next_tail++;
+  read_barrier();
+  index = tail & *ring._sq_ring.ring_mask;
+
+  struct io_uring_sqe *sqe = &ring._sqes[index];
+  *sqe = *in_sqe;
+  ring._sq_ring.array[index] = index;
+  tail = next_tail;
+
+  /* Update the tail so the kernel can see it. */
+  if (*ring._sq_ring.tail != tail)
+  {
+    *ring._sq_ring.tail = tail;
+    write_barrier();
+  }
+
+  unsigned flags = __atomic_load_n(ring._sq_ring.flags, __ATOMIC_RELAXED);
+  if (flags & IORING_SQ_NEED_WAKEUP)
+  {
+    std::cout << "Enter wakerup" << std::endl;
+    int ret = io_uring_enter(ring._fd, 1, 0, IORING_ENTER_SQ_WAKEUP, nullptr /*sig*/);
+    if (ret < 0)
+    {
+      perror("io_uring_enter");
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, void *addr, uint32_t len, uint64_t userdata)
 {
   unsigned next_tail, tail, index;
@@ -284,7 +321,11 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, void 
 // for our bip buf we can submit a readv on our underlying bipbuf code
 int IOURingHelper::SubmitNop(coypu_io_uring &ring, uint64_t userdata)
 {
-  return Submit(ring, 0, IORING_OP_NOP, nullptr, 0, userdata);
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.opcode = IORING_OP_NOP;                   // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
 }
 
 int IOURingHelper::SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata)
@@ -306,7 +347,7 @@ int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec 
 
 void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
 {
-  struct io_uring_cqe *cqe __attribute__((unused));
+  struct io_uring_cqe *cqe;
   unsigned head;
 
   head = *ring._cq_ring.head;
