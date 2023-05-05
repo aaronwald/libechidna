@@ -8,10 +8,12 @@ using namespace std;
 __attribute__((noinline)) int task(int iterations)
 {
   volatile int i = 0;
-  while (i < iterations)
+  int x = 0;
+  while (x < iterations)
   {
-    i++;
+    x++;
   }
+  i = x;
   return i;
 }
 
