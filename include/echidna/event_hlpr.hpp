@@ -52,15 +52,17 @@ namespace coypu::event
 	class IOURingHelper
 	{
 	public:
-		static int Create(coypu_io_uring &ring, uint32_t entries = 1024);
+		static int Create(coypu_io_uring &ring, uint32_t entries = 16, int32_t cpu = -1);
 		static int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata);
 		static int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata);
 		static void DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb);
+		static int SubmitNop(coypu_io_uring &ring, uint64_t userdata);
+		static int SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata);
 
 	private:
 		IOURingHelper() = delete;
 
-		static int Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec *iovecs, uint32_t len, uint64_t userdata);
+		static int Submit(coypu_io_uring &ring, int file_fd, char op_code, void *addr, uint32_t len, uint64_t userdata);
 	};
 
 	class TimerFDHelper

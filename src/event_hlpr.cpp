@@ -16,16 +16,19 @@
 
 #include "echidna/event_hlpr.hpp"
 
-int io_uring_setup(unsigned int entries, struct io_uring_params *p)
+int io_uring_setup(unsigned entries, struct io_uring_params *p)
 {
   return syscall(__NR_io_uring_setup, entries, p);
 }
 
-int io_uring_enter(int ring_fd, unsigned int to_submit,
-                   unsigned int min_complete, unsigned int flags)
+int io_uring_enter(int fd, unsigned to_submit, unsigned min_complete, unsigned flags, sigset_t *sig)
 {
-  return (int)syscall(__NR_io_uring_enter, ring_fd, to_submit, min_complete,
-                      flags, NULL, 0);
+  return syscall(__NR_io_uring_enter, fd, to_submit, min_complete, flags, sig);
+}
+
+int io_uring_register(int fd, unsigned opcode, const void *arg, unsigned nr_args)
+{
+  return syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);
 }
 
 #define read_barrier() __asm__ __volatile__("" :: \
@@ -98,12 +101,36 @@ int SignalFDHelper::BlockAllSignals()
 }
 
 // https://unixism.net/loti/low_level.html
-int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
+int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries, int32_t cpu)
 {
   struct io_uring_params params;
   memset(&params, 0, sizeof(params));
   // params.sq_thread_cpu - set cpu
   // params.sq_thread_idle - idle milliseconds
+
+#ifdef IORING_SETUP_SINGLE_ISSUER
+  params.flags |= IORING_SETUP_SINGLE_ISSUER;
+#endif
+
+#ifdef IORING_SETUP_SUBMIT_ALL
+  params.flags |= IORING_SETUP_SUBMIT_ALL;
+#endif
+
+  // #ifdef IORING_SETUP_COOP_TASKRUN
+  //   params.flags |= IORING_SETUP_COOP_TASKRUN;
+  // #endif
+
+#ifdef IORING_SETUP_SQPOLL
+  params.flags |= IORING_SETUP_SQPOLL;
+#endif
+
+#ifdef IORING_SETUP_SQ_AFF
+  if (cpu >= 0)
+  {
+    params.flags |= IORING_SETUP_SQ_AFF;
+    params.sq_thread_cpu = cpu;
+  }
+#endif
 
   ring._fd = io_uring_setup(entries, &params);
   if (ring._fd < 0)
@@ -117,9 +144,6 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
 
   // completion queue size
   int cring_sz = params.cq_off.cqes + params.cq_entries * sizeof(struct io_uring_cqe);
-
-  printf("sring_sz %d\n", sring_sz);
-  printf("cring_s %d\n", cring_sz);
 
   // IORING_FEAT_SINGLE_MMAP  combine mmaps
   if (params.features & IORING_FEAT_SINGLE_MMAP)
@@ -161,18 +185,25 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
     }
   }
 
-  // compute offsets for later
-  ring._sq_ring.head = reinterpret_cast<unsigned *>((char *)sq_ptr + params.sq_off.head);
-  ring._sq_ring.tail = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.tail);
-  ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.ring_mask);
-  ring._sq_ring.ring_entries = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.ring_entries);
-  ring._sq_ring.flags = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.flags);
-  ring._sq_ring.array = reinterpret_cast<unsigned int *>((char *)sq_ptr + params.sq_off.array);
+  // // compute offsets for later
+  // ring._sq_ring.head = reinterpret_cast<unsigned *>(((char *)sq_ptr) + params.sq_off.head);
+  // ring._sq_ring.tail = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.tail);
+  // ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.ring_mask);
+  // ring._sq_ring.ring_entries = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.ring_entries);
+  // ring._sq_ring.flags = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.flags);
+  // ring._sq_ring.array = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.array);
+
+  ring._sq_ring.head = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.head);
+  ring._sq_ring.tail = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.tail);
+  ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.ring_mask);
+  ring._sq_ring.ring_entries = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.ring_entries);
+  ring._sq_ring.flags = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.flags);
+  ring._sq_ring.array = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.array);
 
   // Map in the submission queue entries array
-  ring._sqes = static_cast<struct io_uring_sqe *>(mmap(0, params.sq_entries * sizeof(struct io_uring_sqe),
-                                                       PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
-                                                       ring._fd, IORING_OFF_SQES));
+  ring._sqes = reinterpret_cast<struct io_uring_sqe *>(mmap(0, params.sq_entries * sizeof(struct io_uring_sqe),
+                                                            PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
+                                                            ring._fd, IORING_OFF_SQES));
   if (ring._sqes == MAP_FAILED)
   {
     perror("mmap");
@@ -180,17 +211,23 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries)
     return -4;
   }
 
-  // compute offsets for later
-  ring._cq_ring.head = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.head);
-  ring._cq_ring.tail = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.tail);
-  ring._cq_ring.ring_mask = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.ring_mask);
-  ring._cq_ring.ring_entries = reinterpret_cast<unsigned int *>((char *)cq_ptr + params.cq_off.ring_entries);
-  ring._cq_ring.cqes = reinterpret_cast<io_uring_cqe *>((char *)cq_ptr + params.cq_off.cqes);
+  // // compute offsets for later
+  // ring._cq_ring.head = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.head);
+  // ring._cq_ring.tail = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.tail);
+  // ring._cq_ring.ring_mask = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.ring_mask);
+  // ring._cq_ring.ring_entries = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.ring_entries);
+  // ring._cq_ring.cqes = reinterpret_cast<io_uring_cqe *>(((char *)cq_ptr) + params.cq_off.cqes);
+
+  ring._cq_ring.head = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(cq_ptr) + params.cq_off.head);
+  ring._cq_ring.tail = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(cq_ptr) + params.cq_off.tail);
+  ring._cq_ring.ring_mask = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(cq_ptr) + params.cq_off.ring_mask);
+  ring._cq_ring.ring_entries = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(cq_ptr) + params.cq_off.ring_entries);
+  ring._cq_ring.cqes = reinterpret_cast<struct io_uring_cqe *>(reinterpret_cast<char *>(cq_ptr) + params.cq_off.cqes);
 
   return 0;
 }
 
-int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struct iovec *iovecs, uint32_t len, uint64_t userdata)
+int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, void *addr, uint32_t len, uint64_t userdata)
 {
   unsigned next_tail, tail, index;
   next_tail = tail = *ring._sq_ring.tail;
@@ -205,7 +242,7 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struc
   sqe->fd = file_fd;
   sqe->flags = 0;
   sqe->opcode = op_code;
-  sqe->addr = (unsigned long)iovecs;
+  sqe->addr = (unsigned long)addr;
   sqe->len = len;
   sqe->off = 0;
   sqe->user_data = userdata;
@@ -226,17 +263,34 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, struc
    * complete.
    * */
   int to_submit = 1;
-  int min_complete = 1;
+  int min_complete = 0; // dont complete and get events,
 
-  // if this returns ok, then it's safe to assume
-  int consumed = io_uring_enter(ring._fd, to_submit, min_complete, IORING_ENTER_GETEVENTS);
-  if (consumed < 0)
+  unsigned flags = __atomic_load_n(ring._sq_ring.flags, __ATOMIC_RELAXED);
+  printf("flags %d\n", flags);
+  if (flags & IORING_SQ_NEED_WAKEUP)
   {
-    perror("io_uring_enter");
-    return -1;
+    // if this returns ok, then it's safe to assume
+    int consumed = io_uring_enter(ring._fd, to_submit, min_complete, 0, nullptr /* sig*/);
+    printf("io_uring_enter consumed %d\n", consumed);
+    if (consumed < 0)
+    {
+      perror("io_uring_enter");
+      return -1;
+    }
   }
 
   return 0;
+}
+
+// for our bip buf we can submit a readv on our underlying bipbuf code
+int IOURingHelper::SubmitNop(coypu_io_uring &ring, uint64_t userdata)
+{
+  return Submit(ring, 0, IORING_OP_NOP, nullptr, 0, userdata);
+}
+
+int IOURingHelper::SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata)
+{
+  return Submit(ring, 0, IORING_OP_TIMEOUT, ts, 1, userdata);
 }
 
 // io_vecs cant go away
@@ -263,11 +317,14 @@ void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<vo
     read_barrier();
 
     // empty
+    printf("A");
     if (head == *ring._cq_ring.tail)
       break;
+    printf("B");
 
     /* Get the entry */
     cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
+    // TODO store the cb in the user data
     cb(cqe->user_data);
 
     head++;
