@@ -266,7 +266,6 @@ int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, void 
   int min_complete = 0; // dont complete and get events,
 
   unsigned flags = __atomic_load_n(ring._sq_ring.flags, __ATOMIC_RELAXED);
-  printf("flags %d\n", flags);
   if (flags & IORING_SQ_NEED_WAKEUP)
   {
     // if this returns ok, then it's safe to assume
@@ -317,10 +316,8 @@ void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<vo
     read_barrier();
 
     // empty
-    printf("A");
     if (head == *ring._cq_ring.tail)
       break;
-    printf("B");
 
     /* Get the entry */
     cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
