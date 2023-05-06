@@ -47,7 +47,6 @@ int EPollHelper::Create(int flags)
 
 int EPollHelper::Add(int efd, int fd, struct epoll_event *event)
 {
-  //  std::cout << "Add " << fd << std::endl;
   return ::epoll_ctl(efd, EPOLL_CTL_ADD, fd, event);
 }
 
@@ -105,7 +104,6 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries, int32_t cpu)
 {
   struct io_uring_params params;
   memset(&params, 0, sizeof(params));
-  // params.sq_thread_cpu - set cpu
   // params.sq_thread_idle - idle milliseconds
 
 #ifdef IORING_SETUP_SINGLE_ISSUER
@@ -185,14 +183,6 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries, int32_t cpu)
     }
   }
 
-  // // compute offsets for later
-  // ring._sq_ring.head = reinterpret_cast<unsigned *>(((char *)sq_ptr) + params.sq_off.head);
-  // ring._sq_ring.tail = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.tail);
-  // ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.ring_mask);
-  // ring._sq_ring.ring_entries = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.ring_entries);
-  // ring._sq_ring.flags = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.flags);
-  // ring._sq_ring.array = reinterpret_cast<unsigned int *>(((char *)sq_ptr) + params.sq_off.array);
-
   ring._sq_ring.head = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.head);
   ring._sq_ring.tail = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.tail);
   ring._sq_ring.ring_mask = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(sq_ptr) + params.sq_off.ring_mask);
@@ -210,13 +200,6 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries, int32_t cpu)
     close(ring._fd);
     return -4;
   }
-
-  // // compute offsets for later
-  // ring._cq_ring.head = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.head);
-  // ring._cq_ring.tail = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.tail);
-  // ring._cq_ring.ring_mask = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.ring_mask);
-  // ring._cq_ring.ring_entries = reinterpret_cast<unsigned int *>(((char *)cq_ptr) + params.cq_off.ring_entries);
-  // ring._cq_ring.cqes = reinterpret_cast<io_uring_cqe *>(((char *)cq_ptr) + params.cq_off.cqes);
 
   ring._cq_ring.head = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(cq_ptr) + params.cq_off.head);
   ring._cq_ring.tail = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(cq_ptr) + params.cq_off.tail);
@@ -264,7 +247,33 @@ int add_to_sqe(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
   return 0;
 }
 
-// for our bip buf we can submit a readv on our underlying bipbuf code
+void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
+{
+  struct io_uring_cqe *cqe;
+  unsigned head;
+
+  head = *ring._cq_ring.head;
+
+  do
+  {
+    read_barrier();
+
+    // empty
+    if (head == *ring._cq_ring.tail)
+      break;
+
+    /* Get the entry */
+    cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
+    // TODO store the cb in the user data
+    cb(cqe->user_data);
+
+    head++;
+  } while (1);
+
+  *ring._cq_ring.head = head;
+  write_barrier();
+}
+
 int IOURingHelper::SubmitNop(coypu_io_uring &ring, uint64_t userdata)
 {
   struct io_uring_sqe sqe;
@@ -348,33 +357,6 @@ int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec 
   sqe.len = len;
   sqe.user_data = (unsigned long long)userdata; // user data
   return add_to_sqe(ring, &sqe);
-}
-
-void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
-{
-  struct io_uring_cqe *cqe;
-  unsigned head;
-
-  head = *ring._cq_ring.head;
-
-  do
-  {
-    read_barrier();
-
-    // empty
-    if (head == *ring._cq_ring.tail)
-      break;
-
-    /* Get the entry */
-    cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
-    // TODO store the cb in the user data
-    cb(cqe->user_data);
-
-    head++;
-  } while (1);
-
-  *ring._cq_ring.head = head;
-  write_barrier();
 }
 
 int IOURingHelper::SubmitClose(coypu_io_uring &ring, int fd, uint64_t userdata)
