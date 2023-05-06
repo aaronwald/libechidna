@@ -264,69 +264,14 @@ int add_to_sqe(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
   return 0;
 }
 
-int IOURingHelper::Submit(coypu_io_uring &ring, int file_fd, char op_code, void *addr, uint32_t len, uint64_t userdata)
-{
-  unsigned next_tail, tail, index;
-  next_tail = tail = *ring._sq_ring.tail;
-  next_tail++;
-  read_barrier();
-  index = tail & *ring._sq_ring.ring_mask;
-
-  // TODO check there is space?
-
-  // add a submittion request
-  struct io_uring_sqe *sqe = &ring._sqes[index];
-  sqe->fd = file_fd;
-  sqe->flags = 0;
-  sqe->opcode = op_code;
-  sqe->addr = (unsigned long)addr;
-  sqe->len = len;
-  sqe->off = 0;
-  sqe->user_data = userdata;
-  ring._sq_ring.array[index] = index;
-  tail = next_tail;
-
-  /* Update the tail so the kernel can see it. */
-  if (*ring._sq_ring.tail != tail)
-  {
-    *ring._sq_ring.tail = tail;
-    write_barrier();
-  }
-
-  /*
-   * Tell the kernel we have submitted events with the io_uring_enter() system
-   * call. We also pass in the IOURING_ENTER_GETEVENTS flag which causes the
-   * io_uring_enter() call to wait until min_complete events (the 3rd param)
-   * complete.
-   * */
-  int to_submit = 1;
-  int min_complete = 0; // dont complete and get events,
-
-  unsigned flags = __atomic_load_n(ring._sq_ring.flags, __ATOMIC_RELAXED);
-  if (flags & IORING_SQ_NEED_WAKEUP)
-  {
-    // if this returns ok, then it's safe to assume
-    int consumed = io_uring_enter(ring._fd, to_submit, min_complete, IORING_ENTER_SQ_WAKEUP, nullptr /* sig*/);
-    printf("io_uring_enter consumed %d\n", consumed);
-    if (consumed < 0)
-    {
-      perror("io_uring_enter");
-      return -1;
-    }
-  }
-
-  return 0;
-}
-
 // for our bip buf we can submit a readv on our underlying bipbuf code
 int IOURingHelper::SubmitNop(coypu_io_uring &ring, uint64_t userdata)
 {
-  // struct io_uring_sqe sqe;
-  // ::memset(&sqe, 0, sizeof(sqe));
-  // sqe.opcode = IORING_OP_NOP;                   // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
-  // sqe.user_data = (unsigned long long)userdata; // user data
-  // return add_to_sqe(ring, &sqe);
-  return IOURingHelper::Submit(ring, 0, IORING_OP_NOP, nullptr, 0, userdata);
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.opcode = IORING_OP_NOP;                   // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
 }
 
 int IOURingHelper::SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata)
@@ -347,13 +292,33 @@ int IOURingHelper::SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint
 // io_vecs cant go away
 int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata)
 {
-  return IOURingHelper::Submit(ring, file_fd, IORING_OP_READV, iovecs, len, userdata);
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.fd = file_fd;
+  sqe.flags = 0;
+  sqe.opcode = IORING_OP_READV; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.addr = (unsigned long long)iovecs;
+  sqe.len = len;
+  sqe.off = 0;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  sqe.timeout_flags = 0;                        // relative
+  return add_to_sqe(ring, &sqe);
 }
 
 // io_vecs cant go away
 int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata)
 {
-  return IOURingHelper::Submit(ring, file_fd, IORING_OP_WRITEV, iovecs, len, userdata);
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.fd = file_fd;
+  sqe.flags = 0;
+  sqe.opcode = IORING_OP_WRITEV; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.addr = (unsigned long long)iovecs;
+  sqe.len = len;
+  sqe.off = 0;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  sqe.timeout_flags = 0;                        // relative
+  return add_to_sqe(ring, &sqe);
 }
 
 void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)

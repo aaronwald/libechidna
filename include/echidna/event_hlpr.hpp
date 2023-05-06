@@ -61,8 +61,6 @@ namespace coypu::event
 
 	private:
 		IOURingHelper() = delete;
-
-		static int Submit(coypu_io_uring &ring, int file_fd, char op_code, void *addr, uint32_t len, uint64_t userdata);
 	};
 
 	class TimerFDHelper
