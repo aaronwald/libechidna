@@ -274,16 +274,51 @@ int IOURingHelper::SubmitNop(coypu_io_uring &ring, uint64_t userdata)
   return add_to_sqe(ring, &sqe);
 }
 
+int IOURingHelper::SubmitEPollAdd(coypu_io_uring &ring, int efd, int fd, struct epoll_event *event, uint64_t userdata)
+{
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.opcode = IORING_OP_EPOLL_CTL; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.fd = efd;
+  sqe.addr = fd;
+  sqe.len = EPOLL_CTL_ADD;
+  sqe.off = (uint64_t)event;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
+}
+
+int IOURingHelper::SubmitEPollModify(coypu_io_uring &ring, int efd, int fd, struct epoll_event *event, uint64_t userdata)
+{
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.opcode = IORING_OP_EPOLL_CTL; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.fd = efd;
+  sqe.addr = fd;
+  sqe.len = EPOLL_CTL_MOD;
+  sqe.off = (uint64_t)event;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
+}
+
+int IOURingHelper::SubmitEPollDelete(coypu_io_uring &ring, int efd, int fd, uint64_t userdata)
+{
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.opcode = IORING_OP_EPOLL_CTL; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.fd = efd;
+  sqe.addr = fd;
+  sqe.len = EPOLL_CTL_DEL;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
+}
+
 int IOURingHelper::SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata)
 {
   struct io_uring_sqe sqe;
   ::memset(&sqe, 0, sizeof(sqe));
-  sqe.fd = 0;
-  sqe.flags = 0;
   sqe.opcode = IORING_OP_TIMEOUT; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
   sqe.addr = (unsigned long long)ts;
   sqe.len = 1;
-  sqe.off = 0;
   sqe.user_data = (unsigned long long)userdata; // user data
   sqe.timeout_flags = 0;                        // relative
   return add_to_sqe(ring, &sqe);
@@ -295,13 +330,10 @@ int IOURingHelper::SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *
   struct io_uring_sqe sqe;
   ::memset(&sqe, 0, sizeof(sqe));
   sqe.fd = file_fd;
-  sqe.flags = 0;
   sqe.opcode = IORING_OP_READV; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
   sqe.addr = (unsigned long long)iovecs;
   sqe.len = len;
-  sqe.off = 0;
   sqe.user_data = (unsigned long long)userdata; // user data
-  sqe.timeout_flags = 0;                        // relative
   return add_to_sqe(ring, &sqe);
 }
 
@@ -311,17 +343,14 @@ int IOURingHelper::SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec 
   struct io_uring_sqe sqe;
   ::memset(&sqe, 0, sizeof(sqe));
   sqe.fd = file_fd;
-  sqe.flags = 0;
   sqe.opcode = IORING_OP_WRITEV; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
   sqe.addr = (unsigned long long)iovecs;
   sqe.len = len;
-  sqe.off = 0;
   sqe.user_data = (unsigned long long)userdata; // user data
-  sqe.timeout_flags = 0;                        // relative
   return add_to_sqe(ring, &sqe);
 }
 
-void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
+void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
 {
   struct io_uring_cqe *cqe;
   unsigned head;
@@ -346,4 +375,53 @@ void IOURingHelper::DrainCompletion(coypu_io_uring &ring, const std::function<vo
 
   *ring._cq_ring.head = head;
   write_barrier();
+}
+
+int IOURingHelper::SubmitClose(coypu_io_uring &ring, int fd, uint64_t userdata)
+{
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.fd = fd;
+  sqe.opcode = IORING_OP_CLOSE;                 // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
+}
+
+int IOURingHelper::SubmitConnectIPV4(coypu_io_uring &ring, int sockFD, struct sockaddr_in *serv_addr, uint64_t userdata)
+{
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.fd = sockFD;
+  sqe.flags = 0;
+  sqe.opcode = IORING_OP_CONNECT; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.addr = (unsigned long long)serv_addr;
+  sqe.len = sizeof(struct sockaddr_in);
+  sqe.user_data = (unsigned long long)userdata; // user data
+  sqe.timeout_flags = 0;                        // relative
+  return add_to_sqe(ring, &sqe);
+}
+
+int IOURingHelper::SubmtiAcceptNonBlock(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata)
+{
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.fd = sockFD;
+  sqe.opcode = IORING_OP_ACCEPT; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.addr = (unsigned long long)addr;
+  sqe.addr2 = (unsigned long long)addrlen;
+  sqe.accept_flags = SOCK_NONBLOCK;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
+}
+
+int IOURingHelper::SubmitSocket(coypu_io_uring &ring, int domain, int type, int protocol, uint64_t userdata)
+{
+  struct io_uring_sqe sqe;
+  ::memset(&sqe, 0, sizeof(sqe));
+  sqe.opcode = IORING_OP_SOCKET; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+  sqe.fd = domain;
+  sqe.off = type;
+  sqe.len = protocol;
+  sqe.user_data = (unsigned long long)userdata; // user data
+  return add_to_sqe(ring, &sqe);
 }

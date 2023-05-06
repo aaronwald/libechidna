@@ -8,6 +8,7 @@
 #include <sys/signalfd.h>
 #include <linux/io_uring.h>
 #include <sys/uio.h>
+#include <netinet/in.h>
 
 namespace coypu::event
 {
@@ -53,11 +54,21 @@ namespace coypu::event
 	{
 	public:
 		static int Create(coypu_io_uring &ring, uint32_t entries = 16, int32_t cpu = -1);
+
 		static int SubmitReadv(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata);
 		static int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata);
-		static void DrainCompletion(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb);
 		static int SubmitNop(coypu_io_uring &ring, uint64_t userdata);
 		static int SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata);
+		static int SubmitEPollAdd(coypu_io_uring &ring, int efd, int fd, struct epoll_event *event, uint64_t userdata);
+		static int SubmitEPollModify(coypu_io_uring &ring, int efd, int fd, struct epoll_event *event, uint64_t userdata);
+		static int SubmitEPollDelete(coypu_io_uring &ring, int efd, int fd, uint64_t userdata);
+
+		static int SubmitSocket(coypu_io_uring &ring, int domain, int type, int protocol, uint64_t userdata);
+		static int SubmtiAcceptNonBlock(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata);
+		static int SubmitConnectIPV4(coypu_io_uring &ring, int sockFD, struct sockaddr_in *serv_addr, uint64_t userdata);
+		static int SubmitClose(coypu_io_uring &ring, int fd, uint64_t userdata);
+
+		static void Drain(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb);
 
 	private:
 		IOURingHelper() = delete;

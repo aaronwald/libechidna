@@ -36,7 +36,7 @@ TEST(URingTest, TestNop1)
   };
 
   while (!match)
-    IOURingHelper::DrainCompletion(ring, cb_check);
+    IOURingHelper::Drain(ring, cb_check);
 
   ASSERT_TRUE(match);
   close(ring._fd);
