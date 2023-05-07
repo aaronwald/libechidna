@@ -29,7 +29,7 @@ TEST(URingTest, TestNop1)
   ASSERT_EQ(r, 0);
 
   bool match = false;
-  auto cb_check = [&match](uint64_t userdata)
+  auto cb_check = [&match](int res, uint64_t userdata)
   {
     ASSERT_EQ(userdata, 123);
     match = true;

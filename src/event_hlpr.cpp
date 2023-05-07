@@ -247,7 +247,7 @@ int add_to_sqe(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
   return 0;
 }
 
-void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(uint64_t)> &cb)
+void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(int, uint64_t)> &cb)
 {
   struct io_uring_cqe *cqe;
   unsigned head;
@@ -265,7 +265,8 @@ void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(uint64_
     /* Get the entry */
     cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
     // TODO store the cb in the user data
-    cb(cqe->user_data);
+
+    cb(cqe->res, cqe->user_data);
 
     head++;
   } while (1);
@@ -383,7 +384,7 @@ int IOURingHelper::SubmitConnectIPV4(coypu_io_uring &ring, int sockFD, struct so
   return add_to_sqe(ring, &sqe);
 }
 
-int IOURingHelper::SubmtiAcceptNonBlock(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata)
+int IOURingHelper::SubmtiAcceptNonBlockMulti(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata)
 {
   struct io_uring_sqe sqe;
   ::memset(&sqe, 0, sizeof(sqe));
