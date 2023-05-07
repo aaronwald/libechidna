@@ -383,7 +383,7 @@ int IOURingHelper::SubmitConnectIPV4(coypu_io_uring &ring, int sockFD, struct so
   return add_to_sqe(ring, &sqe);
 }
 
-int IOURingHelper::SubmtiAcceptNonBlock(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata, bool multi)
+int IOURingHelper::SubmtiAcceptNonBlock(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata)
 {
   struct io_uring_sqe sqe;
   ::memset(&sqe, 0, sizeof(sqe));
@@ -393,9 +393,7 @@ int IOURingHelper::SubmtiAcceptNonBlock(coypu_io_uring &ring, int sockFD, struct
   sqe.addr2 = (unsigned long long)addrlen;
   sqe.accept_flags = SOCK_NONBLOCK;
   sqe.user_data = (unsigned long long)userdata; // user data
-
-  sqe.len = multi ? IORING_POLL_ADD_MULTI : 0;
-
+  sqe.ioprio |= IORING_ACCEPT_MULTISHOT;
   return add_to_sqe(ring, &sqe);
 }
 
