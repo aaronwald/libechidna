@@ -82,9 +82,9 @@ namespace coypu::event
 			::memset(&sqe, 0, sizeof(sqe));
 			sqe.opcode = IORING_OP_EPOLL_CTL; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
 			sqe.fd = efd;
-			sqe.addr = fd;
+			sqe.off = fd;
 			sqe.len = EPOLL_CTL_ADD;
-			sqe.off = (uint64_t)event;
+			sqe.addr = (uint64_t)event;
 			sqe.user_data = (unsigned long long)userdata; // user data
 			return add_to_sqe(ring, &sqe);
 		}
@@ -95,9 +95,9 @@ namespace coypu::event
 			::memset(&sqe, 0, sizeof(sqe));
 			sqe.opcode = IORING_OP_EPOLL_CTL; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
 			sqe.fd = efd;
-			sqe.addr = fd;
+			sqe.off = fd;
 			sqe.len = EPOLL_CTL_MOD;
-			sqe.off = (uint64_t)event;
+			sqe.addr = (uint64_t)event;
 			sqe.user_data = (unsigned long long)userdata; // user data
 			return add_to_sqe(ring, &sqe);
 		}
@@ -108,7 +108,7 @@ namespace coypu::event
 			::memset(&sqe, 0, sizeof(sqe));
 			sqe.opcode = IORING_OP_EPOLL_CTL; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
 			sqe.fd = efd;
-			sqe.addr = fd;
+			sqe.off = fd;
 			sqe.len = EPOLL_CTL_DEL;
 			sqe.user_data = (unsigned long long)userdata; // user data
 			return add_to_sqe(ring, &sqe);
