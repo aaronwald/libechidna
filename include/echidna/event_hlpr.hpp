@@ -64,7 +64,7 @@ namespace coypu::event
 		static int SubmitEPollDelete(coypu_io_uring &ring, int efd, int fd, uint64_t userdata);
 
 		static int SubmitSocket(coypu_io_uring &ring, int domain, int type, int protocol, uint64_t userdata);
-		static int SubmtiAcceptNonBlockMulti(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata);
+		static int SubmitAcceptNonBlockMulti(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata);
 		static int SubmitConnectIPV4(coypu_io_uring &ring, int sockFD, struct sockaddr_in *serv_addr, uint64_t userdata);
 		static int SubmitClose(coypu_io_uring &ring, int fd, uint64_t userdata);
 

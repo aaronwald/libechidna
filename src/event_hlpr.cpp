@@ -384,7 +384,7 @@ int IOURingHelper::SubmitConnectIPV4(coypu_io_uring &ring, int sockFD, struct so
   return add_to_sqe(ring, &sqe);
 }
 
-int IOURingHelper::SubmtiAcceptNonBlockMulti(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata)
+int IOURingHelper::SubmitAcceptNonBlockMulti(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata)
 {
   struct io_uring_sqe sqe;
   ::memset(&sqe, 0, sizeof(sqe));
