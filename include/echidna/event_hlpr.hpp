@@ -70,7 +70,7 @@ namespace coypu::event
 		static inline int SubmitNop(coypu_io_uring &ring, uint64_t userdata)
 		{
 			struct io_uring_sqe sqe;
-			::memset(&sqe, 0, sizeof(sqe));
+			::memset(&sqe, 0, sizeof(sqe));								// memset might be slow
 			sqe.opcode = IORING_OP_NOP;										// https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
 			sqe.user_data = (unsigned long long)userdata; // user data
 			return add_to_sqe(ring, &sqe);
