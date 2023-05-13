@@ -11,6 +11,8 @@
 #include <linux/io_uring.h>
 #include <sys/syscall.h>
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
 
 #define read_barrier() __asm__ __volatile__("" :: \
 																								: "memory")
@@ -258,7 +260,6 @@ namespace coypu::event
 			unsigned flags = __atomic_load_n(ring._sq_ring.flags, __ATOMIC_RELAXED);
 			if (flags & IORING_SQ_NEED_WAKEUP)
 			{
-				std::cout << "Enter wakerup" << std::endl;
 				int ret = io_uring_enter(ring._fd, 1, 0, IORING_ENTER_SQ_WAKEUP, nullptr /*sig*/);
 				if (ret < 0)
 				{
