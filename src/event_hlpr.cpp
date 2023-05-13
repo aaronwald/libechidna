@@ -200,7 +200,7 @@ int IOURingHelper::Create(coypu_io_uring &ring, uint32_t entries, int32_t cpu)
   return 0;
 }
 
-void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(int, uint64_t)> &cb)
+void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(int, uint64_t, int flags)> &cb)
 {
   struct io_uring_cqe *cqe;
   unsigned head;
@@ -211,15 +211,12 @@ void IOURingHelper::Drain(coypu_io_uring &ring, const std::function<void(int, ui
   {
     read_barrier();
 
-    // empty
     if (head == *ring._cq_ring.tail)
       break;
 
-    /* Get the entry */
     cqe = &ring._cq_ring.cqes[head & *ring._cq_ring.ring_mask];
-    // TODO store the cb in the user data
 
-    cb(cqe->res, cqe->user_data);
+    cb(cqe->res, cqe->user_data, cqe->flags);
 
     head++;
   } while (1);

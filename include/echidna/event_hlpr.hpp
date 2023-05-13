@@ -75,7 +75,7 @@ namespace coypu::event
 			::memset(&sqe, 0, sizeof(sqe));								// memset might be slow
 			sqe.opcode = IORING_OP_NOP;										// https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitEPollAdd(coypu_io_uring &ring, int efd, int fd, struct epoll_event *event, uint64_t userdata)
@@ -88,7 +88,7 @@ namespace coypu::event
 			sqe.len = EPOLL_CTL_ADD;
 			sqe.addr = (uint64_t)event;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitEPollModify(coypu_io_uring &ring, int efd, int fd, struct epoll_event *event, uint64_t userdata)
@@ -101,7 +101,7 @@ namespace coypu::event
 			sqe.len = EPOLL_CTL_MOD;
 			sqe.addr = (uint64_t)event;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitEPollDelete(coypu_io_uring &ring, int efd, int fd, uint64_t userdata)
@@ -113,7 +113,7 @@ namespace coypu::event
 			sqe.off = fd;
 			sqe.len = EPOLL_CTL_DEL;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitTimeout(coypu_io_uring &ring, struct timespec *ts, uint64_t userdata)
@@ -125,7 +125,7 @@ namespace coypu::event
 			sqe.len = 1;
 			sqe.user_data = (unsigned long long)userdata; // user data
 			sqe.timeout_flags = 0;												// relative
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		// io_vecs cant go away
@@ -138,7 +138,7 @@ namespace coypu::event
 			sqe.addr = (unsigned long long)iovecs;
 			sqe.len = len;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitSend(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
@@ -150,7 +150,7 @@ namespace coypu::event
 			sqe.addr = (unsigned long long)buf;
 			sqe.len = len;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitRecv(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
@@ -162,7 +162,7 @@ namespace coypu::event
 			sqe.addr = (unsigned long long)buf;
 			sqe.len = len;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitRecvMulti(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
@@ -175,7 +175,7 @@ namespace coypu::event
 			sqe.len = len;
 			sqe.user_data = (unsigned long long)userdata; // user data
 			sqe.ioprio |= IORING_RECV_MULTISHOT;
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		// io_vecs cant go away
@@ -188,7 +188,7 @@ namespace coypu::event
 			sqe.addr = (unsigned long long)iovecs;
 			sqe.len = len;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitClose(coypu_io_uring &ring, int fd, uint64_t userdata)
@@ -198,7 +198,7 @@ namespace coypu::event
 			sqe.fd = fd;
 			sqe.opcode = IORING_OP_CLOSE;									// https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitConnectIPV4(coypu_io_uring &ring, int sockFD, struct sockaddr_in *serv_addr, uint64_t userdata)
@@ -212,7 +212,7 @@ namespace coypu::event
 			sqe.len = sizeof(struct sockaddr_in);
 			sqe.user_data = (unsigned long long)userdata; // user data
 			sqe.timeout_flags = 0;												// relative
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitAcceptNonBlockMulti(coypu_io_uring &ring, int sockFD, struct sockaddr *addr, socklen_t *addrlen, uint64_t userdata)
@@ -226,7 +226,7 @@ namespace coypu::event
 			sqe.accept_flags = SOCK_NONBLOCK;
 			sqe.user_data = (unsigned long long)userdata; // user data
 			sqe.ioprio |= IORING_ACCEPT_MULTISHOT;
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		static inline int SubmitSocket(coypu_io_uring &ring, int domain, int type, int protocol, uint64_t userdata)
@@ -238,16 +238,16 @@ namespace coypu::event
 			sqe.off = type;
 			sqe.len = protocol;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			return add_to_sqe(ring, &sqe);
+			return AddToSQE(ring, &sqe);
 		}
 
 		// res, userdata
-		static void Drain(coypu_io_uring &ring, const std::function<void(int, uint64_t)> &cb);
+		static void Drain(coypu_io_uring &ring, const std::function<void(int, uint64_t, int flags)> &cb);
 
 	private:
 		IOURingHelper() = delete;
 
-		static int add_to_sqe(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
+		static int AddToSQE(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
 		{
 			unsigned index = 0, tail = 0, next_tail = 0;
 
