@@ -162,7 +162,7 @@ namespace coypu::event
 			sqe.addr = (unsigned long long)buf;
 			sqe.len = len;
 			sqe.user_data = (unsigned long long)userdata; // user data
-			sqe.ioprio |= IORING_ACCEPT_MULTISHOT;
+			sqe.ioprio |= IORING_RECV_MULTISHOT;
 			return add_to_sqe(ring, &sqe);
 		}
 
