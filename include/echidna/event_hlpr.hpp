@@ -139,6 +139,31 @@ namespace coypu::event
 			return add_to_sqe(ring, &sqe);
 		}
 
+		static inline int SubmitsEND(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
+		{
+			struct io_uring_sqe sqe;
+			::memset(&sqe, 0, sizeof(sqe));
+			sqe.fd = file_fd;
+			sqe.opcode = IORING_OP_SEND; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+			sqe.addr = (unsigned long long)buf;
+			sqe.len = len;
+			sqe.user_data = (unsigned long long)userdata; // user data
+			return add_to_sqe(ring, &sqe);
+		}
+
+		static inline int SubmitRecvMulti(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
+		{
+			struct io_uring_sqe sqe;
+			::memset(&sqe, 0, sizeof(sqe));
+			sqe.fd = file_fd;
+			sqe.opcode = IORING_OP_RECV; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+			sqe.addr = (unsigned long long)buf;
+			sqe.len = len;
+			sqe.user_data = (unsigned long long)userdata; // user data
+			sqe.ioprio |= IORING_ACCEPT_MULTISHOT;
+			return add_to_sqe(ring, &sqe);
+		}
+
 		// io_vecs cant go away
 		static inline int SubmitWritev(coypu_io_uring &ring, int file_fd, struct iovec *iovecs, uint32_t len, uint64_t userdata)
 		{
