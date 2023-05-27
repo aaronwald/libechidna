@@ -67,10 +67,26 @@ namespace coypu::net::ssl
 		{
 			int _fd;
 			SSL *_ssl;
+			BIO *_rbio;
+			BIO *_wbio;
 
-			SSLConnectionT(int fd, SSL *ssl) : _fd(fd), _ssl(ssl)
+			SSLConnectionT(int fd, SSL *ssl) : _fd(fd), _ssl(ssl), _rbio(nullptr), _wbio(nullptr)
 			{
 			}
+
+			~SSLConnectionT()
+			{
+				if (_rbio)
+				{
+					BIO_free(_rbio);
+				}
+
+				if (_wbio)
+				{
+					BIO_free(_wbio);
+				}
+			}
+
 		} SSLConnection;
 
 		OpenSSLManager(LogTrait &logger, std::function<int(int)> set_write, const std::string &CApath) : _logger(logger),
@@ -145,6 +161,7 @@ namespace coypu::net::ssl
 			assert(_fdToCon[fd] == nullptr);
 			_fdToCon[fd] = std::make_shared<SSLConnection>(fd, ssl);
 
+			// implitly creates a socket BIO for this ssl connection
 			SSL_set_fd(ssl, fd);
 			if (setConnect)
 			{
@@ -152,6 +169,103 @@ namespace coypu::net::ssl
 			}
 
 			return 0;
+		}
+
+		int RegisterWithMemBIO(int fd, const std::string &hostname, bool setConnect = true)
+		{
+			SSL *ssl = SSL_new(_ctx);
+			if (!ssl)
+			{
+				// a->error("SSL new");
+				assert(false);
+			}
+
+			// std::function<int(int, X509_STORE_CTX *)> cb = std::bind(&OpenSSLManager<LogTrait>::VerifyCTX, this, std::placeholders::_1, std::placeholders::_2); // doesnt work
+			SSL_set_verify(ssl, SSL_VERIFY_PEER, Verify<LogTrait>);
+			SSL_set_verify_depth(ssl, 4); // 10 ?
+			SSL_set_ex_data(ssl, 1, this);
+			SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY);
+
+			if (!hostname.empty())
+				SSL_set_tlsext_host_name(ssl, hostname.c_str());
+
+			_logger->info("SSL CTX verifyMode[{0}] verifyMode[{1}] fd[{2}]",
+										SSL_CTX_get_verify_mode(_ctx),
+										SSL_get_verify_mode(ssl),
+										fd);
+
+			if (static_cast<size_t>(fd + 1) > _fdToCon.size())
+			{
+				_fdToCon.resize(fd + 1, nullptr);
+			}
+
+			assert(_fdToCon[fd] == nullptr);
+			_fdToCon[fd] = std::make_shared<SSLConnection>(fd, ssl);
+
+			// create mem bio instead of a socket BIO
+			_fdToCon[fd]->_rbio = BIO_new(BIO_s_mem());
+			_fdToCon[fd]->_wbio = BIO_new(BIO_s_mem());
+			SSL_set_bio(ssl, _fdToCon[fd]->_rbio, _fdToCon[fd]->_wbio);
+
+			if (setConnect)
+			{
+				SSL_set_connect_state(ssl);
+			}
+
+			return 0;
+		}
+
+		// push data to the read side of the ssl connection
+		// the other option is to chain a BIO for each completion read?
+		// still a copy here
+		// call Readv after this to process the data
+		int PushReadBIO(int fd, const struct iovec *iovec, int count)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+			if (count < 0)
+				return -4;
+
+			SSL *ssl = con->_ssl;
+			if (!ssl)
+				return -5;
+
+			BIO *rbio = SSL_get_rbio(ssl);
+			if (!rbio)
+				return -6;
+
+			// returns how much written
+			return BIO_write(rbio, iovec[0].iov_base, iovec[0].iov_len);
+		}
+
+		// direct bio manipulation, not calling ssl_read or ssl_write
+		// for use with completions
+		int DrainWriteBIO(int fd, const struct iovec *iovec, int count)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+			if (count < 0)
+				return -4;
+
+			SSL *ssl = con->_ssl;
+			if (!ssl)
+				return -5;
+
+			BIO *wbio = SSL_get_wbio(ssl);
+			if (!wbio)
+				return -6;
+
+			return BIO_read(wbio, iovec[0].iov_base, iovec[0].iov_len);
 		}
 
 		int Unregister(int fd)
@@ -171,6 +285,7 @@ namespace coypu::net::ssl
 			return 0;
 		}
 
+		/*
 		int ReadNonBlock(int fd, void *buf, size_t len)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
@@ -238,6 +353,7 @@ namespace coypu::net::ssl
 			}
 			return ret;
 		}
+		*/
 
 		// Only checks index 0
 		int ReadvNonBlock(int fd, const struct iovec *iovec, int count)
