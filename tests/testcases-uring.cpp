@@ -4,6 +4,8 @@
 
 #include <string>
 
+#include <fcntl.h>
+
 using namespace coypu::event;
 
 TEST(URingTest, Test1)
@@ -39,5 +41,45 @@ TEST(URingTest, TestNop1)
     IOURingHelper::Drain(ring, cb_check);
 
   ASSERT_TRUE(match);
+  close(ring._fd);
+}
+
+TEST(UringTest, TestPipe1)
+{
+  coypu_io_uring ring = {};
+
+  int r = IOURingHelper::Create(ring);
+  ASSERT_EQ(r, 0);
+  ASSERT_TRUE(ring._fd > 0);
+
+  int pipefd[2];
+  r = pipe2(pipefd, O_NONBLOCK);
+  ASSERT_EQ(r, 0);
+
+  char buf[1024] = {0};
+  struct iovec iov1 = {.iov_base = buf, .iov_len = sizeof(buf)};
+
+  char buf2[1024] = {0};
+  strcpy(buf2, "hello");
+  struct iovec iov2 = {.iov_base = buf2, .iov_len = 5};
+
+  r = IOURingHelper::SubmitWritev(ring, pipefd[1], &iov2, 1, 124);
+  r = IOURingHelper::SubmitReadv(ring, pipefd[0], &iov1, 1, 123);
+
+  bool match = false;
+  auto cb_check = [&match](int res, uint64_t userdata, int)
+  {
+    if (userdata == 123)
+      match = true;
+  };
+
+  while (!match)
+    IOURingHelper::Drain(ring, cb_check);
+
+  ASSERT_TRUE(match);
+  ASSERT_EQ(strncmp(buf, buf2, 5), 0);
+
+  close(pipefd[0]);
+  close(pipefd[1]);
   close(ring._fd);
 }

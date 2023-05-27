@@ -219,6 +219,7 @@ namespace coypu::net::ssl
 		// the other option is to chain a BIO for each completion read?
 		// still a copy here
 		// call Readv after this to process the data
+		// for use with completions to move data in/out of ssl
 		int PushReadBIO(int fd, const struct iovec *iovec, int count)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
@@ -244,7 +245,7 @@ namespace coypu::net::ssl
 		}
 
 		// direct bio manipulation, not calling ssl_read or ssl_write
-		// for use with completions
+		// for use with completions to move data in/out of ssl
 		int DrainWriteBIO(int fd, const struct iovec *iovec, int count)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
