@@ -10,7 +10,6 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 # END googletest
 
-
 # BEGIN spdlog
 FetchContent_Declare(
   spdlog
@@ -28,11 +27,15 @@ endif()
 
 find_package(OpenSSL REQUIRED)
 
-file(GLOB_RECURSE ECHIDNA_TEST_SRC ${PROJECT_SOURCE_DIR}/tests/*.cpp)
+file(GLOB_RECURSE ECHIDNA_TEST_SRC ${PROJECT_SOURCE_DIR}/tests/testcases-*.cpp)
 set(echidnatest_flags -DSPDLOG_DEBUG_ON=1 -DSPDLOG_TRACE_ON=1)
 add_executable(echidnatest ${ECHIDNA_TEST_SRC} ${ECHIDNA_SRC} )
 target_include_directories(echidnatest PUBLIC ../include)
 target_link_libraries(echidnatest gtest_main echidna yaml numa spdlog::spdlog OpenSSL::SSL OpenSSL::Crypto )
+
+add_executable(echidnassltest ${PROJECT_SOURCE_DIR}/tests/test-ssl.cpp ${ECHIDNA_SRC} )
+target_include_directories(echidnassltest PUBLIC ../include)
+target_link_libraries(echidnassltest gtest_main echidna yaml numa spdlog::spdlog OpenSSL::SSL OpenSSL::Crypto )
 
 # Load tests...
 gtest_discover_tests(echidnatest)

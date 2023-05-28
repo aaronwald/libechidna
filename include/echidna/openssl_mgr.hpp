@@ -351,7 +351,6 @@ namespace coypu::net::ssl
 		}
 		*/
 
-		// Only checks index 0
 		int Connect(int fd)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
@@ -363,6 +362,67 @@ namespace coypu::net::ssl
 				return -3;
 
 			return SSL_connect(con->_ssl);
+		}
+
+		int Accept(int fd)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+
+			int xret = SSL_accept(con->_ssl);
+			if (xret <= 0)
+			{
+				int ret = SSL_get_error(con->_ssl, xret);
+				if (ret == SSL_ERROR_WANT_READ)
+				{
+					return 0;
+				}
+				else if (ret == SSL_ERROR_WANT_WRITE)
+				{
+					_set_write(con->_fd);
+					return 0;
+				}
+				else if (ret == SSL_ERROR_ZERO_RETURN)
+				{
+					return 0;
+				}
+				else if (ret == SSL_ERROR_NONE)
+				{
+					if (_logger)
+					{
+						_logger->info("Error none");
+					}
+				}
+				else if (ret == SSL_ERROR_SYSCALL)
+				{
+					char buf[1024] = {};
+					strerror_r(errno, buf, 1024);
+					// if (err == 0) { // closed?}
+					unsigned long err = ERR_get_error();
+					if (_logger)
+					{
+						_logger->warn("Syscall Errno errno[{0}] ret[{1}]  err[{2}]", errno, ret, err);
+					}
+					// could be closed socket from server
+					return -1;
+				}
+				else
+				{
+					unsigned long err = ERR_get_error();
+					if (_logger)
+					{
+						_logger->warn("Some other error to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
+						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
+					}
+					return -4;
+				}
+			}
+			return xret;
 		}
 
 		// Only checks index 0
