@@ -148,10 +148,13 @@ namespace coypu::net::ssl
 			if (!hostname.empty())
 				SSL_set_tlsext_host_name(ssl, hostname.c_str());
 
-			_logger->info("SSL CTX verifyMode[{0}] verifyMode[{1}] fd[{2}]",
-										SSL_CTX_get_verify_mode(_ctx),
-										SSL_get_verify_mode(ssl),
-										fd);
+			if (_logger)
+			{
+				_logger->info("SSL CTX verifyMode[{0}] verifyMode[{1}] fd[{2}]",
+											SSL_CTX_get_verify_mode(_ctx),
+											SSL_get_verify_mode(ssl),
+											fd);
+			}
 
 			if (static_cast<size_t>(fd + 1) > _fdToCon.size())
 			{
@@ -189,10 +192,13 @@ namespace coypu::net::ssl
 			if (!hostname.empty())
 				SSL_set_tlsext_host_name(ssl, hostname.c_str());
 
-			_logger->info("SSL CTX verifyMode[{0}] verifyMode[{1}] fd[{2}]",
-										SSL_CTX_get_verify_mode(_ctx),
-										SSL_get_verify_mode(ssl),
-										fd);
+			if (_logger)
+			{
+				_logger->info("SSL CTX verifyMode[{0}] verifyMode[{1}] fd[{2}]",
+											SSL_CTX_get_verify_mode(_ctx),
+											SSL_get_verify_mode(ssl),
+											fd);
+			}
 
 			if (static_cast<size_t>(fd + 1) > _fdToCon.size())
 			{
@@ -376,7 +382,6 @@ namespace coypu::net::ssl
 				int ret = SSL_get_error(con->_ssl, xret);
 				if (ret == SSL_ERROR_WANT_READ)
 				{
-					_logger->info("SSL want read");
 					return 0;
 				}
 				else if (ret == SSL_ERROR_WANT_WRITE)
@@ -386,12 +391,14 @@ namespace coypu::net::ssl
 				}
 				else if (ret == SSL_ERROR_ZERO_RETURN)
 				{
-					_logger->info("Zero return. TLS/SSL conneciton has been closed.");
 					return 0;
 				}
 				else if (ret == SSL_ERROR_NONE)
 				{
-					_logger->info("Error none {0}", iovec[0].iov_len);
+					if (_logger)
+					{
+						_logger->info("Error none {0}", iovec[0].iov_len);
+					}
 				}
 				else if (ret == SSL_ERROR_SYSCALL)
 				{
@@ -399,16 +406,21 @@ namespace coypu::net::ssl
 					strerror_r(errno, buf, 1024);
 					// if (err == 0) { // closed?}
 					unsigned long err = ERR_get_error();
-
-					_logger->warn("Syscall Errno errno[{0}] ret[{1}] iov_len[{2}] err[{3}]", errno, ret, iovec[0].iov_len, err);
+					if (_logger)
+					{
+						_logger->warn("Syscall Errno errno[{0}] ret[{1}] iov_len[{2}] err[{3}]", errno, ret, iovec[0].iov_len, err);
+					}
 					// could be closed socket from server
 					return -1;
 				}
 				else
 				{
 					unsigned long err = ERR_get_error();
-					_logger->warn("Some other error to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
-					_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
+					if (_logger)
+					{
+						_logger->warn("Some other error to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
+						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
+					}
 					return -4;
 				}
 			}
@@ -444,8 +456,11 @@ namespace coypu::net::ssl
 				else
 				{
 					unsigned long err = ERR_get_error();
-					_logger->warn("Some other error to handle {0} [{1}]", err, ERR_error_string(err, nullptr));
-					_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
+					if (_logger)
+					{
+						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_error_string(err, nullptr));
+						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
+					}
 					return -4;
 				}
 			}
@@ -506,12 +521,18 @@ namespace coypu::net::ssl
 		}
 		if (!preverify_ok)
 		{
-			sslmgr->_logger->error("verify error:num={0}:{1}:depth={2}:{3}", err,
-														 X509_verify_cert_error_string(err), depth, buf);
+			if (sslmgr->_logger)
+			{
+				sslmgr->_logger->error("verify error:num={0}:{1}:depth={2}:{3}", err,
+															 X509_verify_cert_error_string(err), depth, buf);
+			}
 		}
 		else if (true)
 		{
-			sslmgr->_logger->debug("depth={0}:{1}", depth, buf);
+			if (sslmgr->_logger)
+			{
+				sslmgr->_logger->debug("depth={0}:{1}", depth, buf);
+			}
 		}
 
 		/*
