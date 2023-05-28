@@ -67,24 +67,13 @@ namespace coypu::net::ssl
 		{
 			int _fd;
 			SSL *_ssl;
-			BIO *_rbio;
-			BIO *_wbio;
 
-			SSLConnectionT(int fd, SSL *ssl) : _fd(fd), _ssl(ssl), _rbio(nullptr), _wbio(nullptr)
+			SSLConnectionT(int fd, SSL *ssl) : _fd(fd), _ssl(ssl)
 			{
 			}
 
 			~SSLConnectionT()
 			{
-				if (_rbio)
-				{
-					BIO_free(_rbio);
-				}
-
-				if (_wbio)
-				{
-					BIO_free(_wbio);
-				}
 			}
 
 		} SSLConnection;
@@ -209,9 +198,9 @@ namespace coypu::net::ssl
 			_fdToCon[fd] = std::make_shared<SSLConnection>(fd, ssl);
 
 			// create mem bio instead of a socket BIO
-			_fdToCon[fd]->_rbio = BIO_new(BIO_s_mem());
-			_fdToCon[fd]->_wbio = BIO_new(BIO_s_mem());
-			SSL_set_bio(ssl, _fdToCon[fd]->_rbio, _fdToCon[fd]->_wbio);
+			// _fdToCon[fd]->_rbio = BIO_new(BIO_s_mem());
+			// _fdToCon[fd]->_wbio = BIO_new(BIO_s_mem());
+			SSL_set_bio(ssl, BIO_new(BIO_s_mem()), BIO_new(BIO_s_mem()));
 
 			if (setConnect)
 			{
@@ -361,6 +350,20 @@ namespace coypu::net::ssl
 			return ret;
 		}
 		*/
+
+		// Only checks index 0
+		int Connect(int fd)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+
+			return SSL_connect(con->_ssl);
+		}
 
 		// Only checks index 0
 		int ReadvNonBlock(int fd, const struct iovec *iovec, int count)

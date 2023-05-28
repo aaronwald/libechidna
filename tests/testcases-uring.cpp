@@ -1,17 +1,18 @@
 #include "gtest/gtest.h"
 #include "echidna/event_hlpr.hpp"
 #include "echidna/openssl_mgr.hpp"
+#include "echidna/tcp.hpp"
 #include <string>
 #include <fcntl.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 using namespace coypu::event;
 using namespace coypu::net::ssl;
+using namespace coypu::tcp;
 
 TEST(URingTest, Test1)
 {
@@ -92,7 +93,7 @@ TEST(UringTest, TestPipe1)
 typedef std::shared_ptr<spdlog::logger> LogType;
 typedef OpenSSLManager<LogType> SSLType;
 
-TEST(UringTest, TestPipe2)
+TEST(UringTest, TestUringSocketPairSSL)
 {
   coypu_io_uring ring = {};
   std::function<int(int)> set_write_ws = [](int fd) -> int
@@ -109,8 +110,8 @@ TEST(UringTest, TestPipe2)
   ASSERT_EQ(r, 0);
   ASSERT_TRUE(ring._fd > 0);
 
-  int pipefd[2];
-  r = pipe2(pipefd, O_NONBLOCK);
+  int socketpair[2];
+  r = TCPHelper::CreateUnixSocketPairNonBlock(socketpair);
   ASSERT_EQ(r, 0);
 
   char in_buf[1024] = {0};
@@ -120,11 +121,11 @@ TEST(UringTest, TestPipe2)
   strcpy(buf2, "hello");
   struct iovec iov2 = {.iov_base = buf2, .iov_len = 5};
 
-  ssl_mgr->RegisterWithMemBIO(pipefd[0], "localhost", true);
-  ssl_mgr->RegisterWithMemBIO(pipefd[1], "localhost", true);
+  ASSERT_EQ(ssl_mgr->RegisterWithMemBIO(socketpair[0], "localhost", true), 0);
+  ASSERT_EQ(ssl_mgr->RegisterWithMemBIO(socketpair[1], "localhost", true), 0);
 
-  r = IOURingHelper::SubmitWritev(ring, pipefd[1], &iov2, 1, 124);
-  r = IOURingHelper::SubmitReadv(ring, pipefd[0], &iov1, 1, 123);
+  r = IOURingHelper::SubmitWritev(ring, socketpair[1], &iov2, 1, 124);
+  r = IOURingHelper::SubmitReadv(ring, socketpair[0], &iov1, 1, 123);
 
   bool match = false;
   auto cb_check = [&match](int res, uint64_t userdata, int)
@@ -139,7 +140,10 @@ TEST(UringTest, TestPipe2)
   ASSERT_TRUE(match);
   ASSERT_EQ(strncmp(in_buf, buf2, 5), 0);
 
-  close(pipefd[0]);
-  close(pipefd[1]);
+  ASSERT_EQ(ssl_mgr->Unregister(socketpair[0]), 0);
+  ASSERT_EQ(ssl_mgr->Unregister(socketpair[1]), 0);
+
+  close(socketpair[0]);
+  close(socketpair[1]);
   close(ring._fd);
 }
