@@ -459,32 +459,6 @@ namespace coypu::net::ssl
 			return BIO_ctrl_pending(SSL_get_rbio(con->_ssl));
 		}
 
-		int DoRead(int fd, void *buf, int len)
-		{
-			if (static_cast<size_t>(fd) >= _fdToCon.size())
-				return -1;
-			if (!_fdToCon[fd])
-				return -2;
-			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
-			if (!con)
-				return -3;
-
-			return SSL_read(con->_ssl, buf, len);
-		}
-
-		int DoWrite(int fd, void *buf, int len)
-		{
-			if (static_cast<size_t>(fd) >= _fdToCon.size())
-				return -1;
-			if (!_fdToCon[fd])
-				return -2;
-			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
-			if (!con)
-				return -3;
-
-			return SSL_write(con->_ssl, buf, len);
-		}
-
 		int DoHandshake(int fd)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())

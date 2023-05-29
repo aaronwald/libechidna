@@ -145,7 +145,6 @@ int main(int argc, char **argv)
         // call push read bio
         in_iov[0].iov_len = res; //. set len to what is there
         int r = ssl_mgr->PushReadBIO(cb_fd, in_iov, 1);
-        printf("Push read %d\n", r);
 
         if (!ssl_mgr->IsInitFinished(cb_fd))
         {
@@ -153,15 +152,19 @@ int main(int argc, char **argv)
         }
         else if (ssl_mgr->PendingRead(cb_fd) > 0)
         {
-          // TODO: replace with readv/writev non block
           char read_buf[1025] = {0};
-          int r = ssl_mgr->DoRead(cb_fd, read_buf, 1024);
+          struct iovec v[1];
+          v[0].iov_base = read_buf;
+          v[0].iov_len = 1024;
+
+          int r = ssl_mgr->ReadvNonBlock(cb_fd, &v[0], 1);
           if (r > 0)
           {
             hexdump(read_buf, r);
 
             // echo back
-            ssl_mgr->DoWrite(cb_fd, read_buf, r);
+            v[0].iov_len = r;
+            ssl_mgr->WritevNonBlock(cb_fd, &v[0], 1);
           }
           else
           {
@@ -174,7 +177,6 @@ int main(int argc, char **argv)
           int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
           if (r > 0)
           {
-            printf("Submit Writev1 %d\n", r);
             out_iov->iov_len = r;
             IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
           }
@@ -204,14 +206,11 @@ int main(int argc, char **argv)
 
     case CB_WRITEV:
     {
-      printf("Writev res=%d\n", res);
-
       if (ssl_mgr->PendingWrite(cb_fd) > 0)
       {
         int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
         if (r > 0)
         {
-          printf("Submit Writev1 %d\n", r);
           out_iov->iov_len = r;
           IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
         }
