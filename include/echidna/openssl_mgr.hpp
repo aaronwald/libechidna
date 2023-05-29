@@ -433,7 +433,7 @@ namespace coypu::net::ssl
 			return SSL_is_init_finished(con->_ssl) == 1;
 		}
 
-		int Pending(int fd)
+		int PendingWrite(int fd)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
@@ -444,6 +444,32 @@ namespace coypu::net::ssl
 				return -3;
 
 			return BIO_ctrl_pending(SSL_get_wbio(con->_ssl));
+		}
+
+		int PendingRead(int fd)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+
+			return BIO_ctrl_pending(SSL_get_rbio(con->_ssl));
+		}
+
+		int DrainRead(int fd, void *buf, int len)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+
+			return SSL_read(con->_ssl, buf, len);
 		}
 
 		int DoHandshake(int fd)

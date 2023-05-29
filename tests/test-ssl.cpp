@@ -31,6 +31,26 @@ enum TEST_CALLBACK
 
 constexpr int LISTEN_PORT = 9988;
 
+void hexdump(void *ptr, int buflen)
+{
+  unsigned char *buf = (unsigned char *)ptr;
+  int i, j;
+  for (i = 0; i < buflen; i += 16)
+  {
+    printf("%06x: ", i);
+    for (j = 0; j < 16; j++)
+      if (i + j < buflen)
+        printf("%02x ", buf[i + j]);
+      else
+        printf("   ");
+    printf(" ");
+    for (j = 0; j < 16; j++)
+      if (i + j < buflen)
+        printf("%c", isprint(buf[i + j]) ? buf[i + j] : '.');
+    printf("\n");
+  }
+}
+
 int main(int argc, char **argv)
 {
   struct utsname u;
@@ -131,12 +151,23 @@ int main(int argc, char **argv)
         {
           int r = ssl_mgr->DoHandshake(cb_fd);
         }
-        else
+        else if (ssl_mgr->PendingRead(cb_fd) > 0)
         {
-          printf("init finished\n");
+          // TODO: Do read
+          char read_buf[1025] = {0};
+          int r = ssl_mgr->DrainRead(cb_fd, read_buf, 1024);
+          if (r > 0)
+          {
+            hexdump(read_buf, r);
+            printf("Read %d: `%s`\n", r, read_buf);
+          }
+          else
+          {
+            printf("DrainRead %d\n", r);
+          }
         }
 
-        if (ssl_mgr->Pending(cb_fd) > 0)
+        if (ssl_mgr->PendingWrite(cb_fd) > 0)
         {
           int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
           if (r > 0)
@@ -173,7 +204,7 @@ int main(int argc, char **argv)
     {
       printf("Writev res=%d\n", res);
 
-      if (ssl_mgr->Pending(cb_fd) > 0)
+      if (ssl_mgr->PendingWrite(cb_fd) > 0)
       {
         int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
         if (r > 0)
