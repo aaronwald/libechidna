@@ -155,9 +155,14 @@ namespace coypu::net::ssl
 
 			// implitly creates a socket BIO for this ssl connection
 			SSL_set_fd(ssl, fd);
+
 			if (setConnect)
 			{
 				SSL_set_connect_state(ssl);
+			}
+			else
+			{
+				SSL_set_accept_state(ssl);
 			}
 
 			return 0;
@@ -204,9 +209,15 @@ namespace coypu::net::ssl
 			SSL_set0_rbio(ssl, BIO_new(BIO_s_mem()));
 			SSL_set0_wbio(ssl, BIO_new(BIO_s_mem()));
 
+			BIO_set_mem_eof_return(SSL_get_rbio(ssl), -1);
+
 			if (setConnect)
 			{
 				SSL_set_connect_state(ssl);
+			}
+			else
+			{
+				SSL_set_accept_state(ssl);
 			}
 
 			return 0;
@@ -385,7 +396,7 @@ namespace coypu::net::ssl
 			return 0;
 		}
 
-		bool SetAccept(int fd)
+		bool IsServer(int fd)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return false;
@@ -395,9 +406,7 @@ namespace coypu::net::ssl
 			if (!con)
 				return false;
 
-			printf("set accept state\n");
-			SSL_set_accept_state(con->_ssl);
-			return true;
+			return SSL_is_server(con->_ssl) == true;
 		}
 
 		bool IsInitFinished(int fd)
@@ -411,6 +420,19 @@ namespace coypu::net::ssl
 				return false;
 
 			return SSL_is_init_finished(con->_ssl);
+		}
+
+		int Pending(int fd)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+
+			return BIO_ctrl_pending(SSL_get_wbio(con->_ssl));
 		}
 
 		int DoHandshake(int fd)

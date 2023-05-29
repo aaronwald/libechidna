@@ -93,10 +93,12 @@ int main(int argc, char **argv)
 
   // TODO Setup buffer manager for the connections
   char in_data[1024];
+  char out_data[1024];
 
   struct iovec in_iov[1] = {{in_data, 1024}};
+  struct iovec out_iov[1] = {{out_data, 1024}};
 
-  auto process_ring_completions = [&accept_addr, &ring, &in_iov, ssl_mgr](int res, uint64_t userdata, int flags)
+  auto process_ring_completions = [&accept_addr, &ring, &in_iov, &out_iov, ssl_mgr](int res, uint64_t userdata, int flags)
   {
     static int cb_fd = 0;
 
@@ -108,7 +110,7 @@ int main(int argc, char **argv)
       cb_fd = res;
 
       ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false);
-      ssl_mgr->SetAccept(cb_fd);
+      printf("is server %d\n", ssl_mgr->IsServer(cb_fd));
       int r = IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
       if (r < 0)
       {
@@ -131,6 +133,14 @@ int main(int argc, char **argv)
           int r = ssl_mgr->DoHandshake(cb_fd);
         }
 
+        int pending = 0;
+        if ((pending = ssl_mgr->Pending(cb_fd)) > 0)
+        {
+          int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
+          printf("Pending %d\n", r);
+          out_iov->iov_len = pending;
+          IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
+        }
         // TODO: Do we need to somehow pump read?
         // https://www.roxlu.com/2014/042/using-openssl-with-memory-bios
         //  if(!SSL_is_init_finished(to->ssl)) {
@@ -151,6 +161,12 @@ int main(int argc, char **argv)
         // error
         printf("Readv fd=%d %s\n", res, strerror(-res));
       }
+    }
+    break;
+
+    case CB_WRITEV:
+    {
+      printf("Writev fd=%d\n", res);
     }
     break;
     }
