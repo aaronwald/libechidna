@@ -67,11 +67,8 @@ int main(int argc, char **argv)
 
   std::function<int(int)> set_write_ws = [&ring](int fd)
   {
-    printf("Want write %d\n", fd);
-    // TODO: What to write though? Drain from ssl - we need the SSL passed back here
-    // Then on completion we have to check if there is more to write....
-    //    int r = IOURingHelper::SubmitWritev(ring, fd, nullptr, 0, CB_WRITEV);
-    // check SSL_pending
+    // with open ssl this is a no op.
+    // we check pending to see when to schedule a writev
     return 0;
   };
   spdlog::set_level(spdlog::level::debug);
@@ -105,7 +102,7 @@ int main(int argc, char **argv)
     perror("listen");
     return EXIT_FAILURE;
   }
-  std::cout << "Listen:" << LISTEN_PORT << std::endl;
+  consoleLogger->info("Listen:{}", LISTEN_PORT);
 
   struct sockaddr accept_addr;
   socklen_t accept_addr_len;
@@ -118,7 +115,7 @@ int main(int argc, char **argv)
   struct iovec in_iov[1] = {{in_data, 1024}};
   struct iovec out_iov[1] = {{out_data, 1024}};
 
-  auto process_ring_completions = [&accept_addr, &ring, &in_iov, &out_iov, ssl_mgr](int res, uint64_t userdata, int flags)
+  auto process_ring_completions = [&accept_addr, &ring, &in_iov, &out_iov, ssl_mgr, consoleLogger](int res, uint64_t userdata, int flags)
   {
     static int cb_fd = 0;
 
@@ -126,7 +123,7 @@ int main(int argc, char **argv)
     {
     case CB_ACCEPT:
     {
-      printf("Accept fd=%d %s\n", res, inet_ntoa(((struct sockaddr_in *)&accept_addr)->sin_addr));
+      consoleLogger->info("Accept fd={0} {1}", res, inet_ntoa(((struct sockaddr_in *)&accept_addr)->sin_addr));
       cb_fd = res;
 
       ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false);
@@ -168,7 +165,7 @@ int main(int argc, char **argv)
           }
           else
           {
-            printf("DrainRead %d\n", r);
+            consoleLogger->error("Read error {0}", r);
           }
         }
 
@@ -182,7 +179,7 @@ int main(int argc, char **argv)
           }
           else
           {
-            printf("DrainWriteBIO %d\n", r);
+            consoleLogger->error("DrainWriteBIO {0}", r);
           }
         }
 
@@ -199,7 +196,7 @@ int main(int argc, char **argv)
       else
       {
         // error
-        printf("Readv fd=%d %s\n", res, strerror(-res));
+        consoleLogger->error("Readv fd={0} {1}", res, strerror(-res));
       }
     }
     break;
@@ -216,7 +213,7 @@ int main(int argc, char **argv)
         }
         else
         {
-          printf("DrainWriteBIO %d\n", r);
+          consoleLogger->error("DrainWriteBIO {0}", r);
         }
       }
     }
