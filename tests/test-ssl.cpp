@@ -108,7 +108,7 @@ int main(int argc, char **argv)
   socklen_t accept_addr_len;
   r = IOURingHelper::SubmitAcceptNonBlockMulti(ring, sockFD, &accept_addr, &accept_addr_len, CB_ACCEPT);
 
-  // TODO Setup buffer manager for the connections
+  // TODO Setup buffer manager for the connections, use bipbuf?
   char in_data[1024];
   char out_data[1024];
 
@@ -126,11 +126,13 @@ int main(int argc, char **argv)
       consoleLogger->info("Accept fd={0} {1}", res, inet_ntoa(((struct sockaddr_in *)&accept_addr)->sin_addr));
       cb_fd = res;
 
-      ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false);
+      ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false /* set to accept state for server*/);
+
+      // set our first read request (should be multishot but not supported yet)
       int r = IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
       if (r < 0)
       {
-        perror("readv");
+        consoleLogger->error("Failed to submit readv");
       }
     }
     break;
@@ -146,6 +148,10 @@ int main(int argc, char **argv)
         if (!ssl_mgr->IsInitFinished(cb_fd))
         {
           int r = ssl_mgr->DoHandshake(cb_fd);
+          if (r != 0 && r != 1)
+          {
+            consoleLogger->error("Handshake error {0}", r);
+          }
         }
         else if (ssl_mgr->PendingRead(cb_fd) > 0)
         {
