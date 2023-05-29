@@ -29,8 +29,13 @@ namespace coypu
       };
 
       static int CreateIPV4NonBlockSocket();
+      static int CreateIPV4NonBlockUnixSocket();
       static int CreateIPV6NonBlockSocket();
-      static int SetNoDelay(int fd);
+
+      static int CreateUnixSocketPairNonBlock(int sv[2]);
+
+      static int
+      SetNoDelay(int fd);
       static int SetReuseAddr(int fd);
       static int SetReusePort(int fd);
 

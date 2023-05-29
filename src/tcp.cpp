@@ -101,6 +101,16 @@ int TCPHelper::SetReusePort(int fd)
 	return ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
 }
 
+int TCPHelper::CreateUnixSocketPairNonBlock(int sv[2])
+{
+	return ::socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sv);
+}
+
+int TCPHelper::CreateIPV4NonBlockUnixSocket()
+{
+	return ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+}
+
 int TCPHelper::CreateIPV4NonBlockSocket()
 {
 	return ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
