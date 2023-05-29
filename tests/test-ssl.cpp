@@ -136,6 +136,7 @@ int main(int argc, char **argv)
         if ((pending = ssl_mgr->Pending(cb_fd)) > 0)
         {
           int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
+          pending = min(pending, 1024);
           printf("Submit Writev1 %d\n", pending);
           out_iov->iov_len = pending;
           IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
@@ -143,6 +144,7 @@ int main(int argc, char **argv)
 
         if (!(flags & IORING_CQE_F_MORE))
         {
+          in_iov[0].iov_len = 1024;
           IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
         }
       }
@@ -166,6 +168,8 @@ int main(int argc, char **argv)
       if ((pending = ssl_mgr->Pending(cb_fd)) > 0)
       {
         int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
+
+        pending = min(pending, 1024);
         printf("Submit Writev2 %d\n", pending);
         out_iov->iov_len = pending;
         IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
