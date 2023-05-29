@@ -131,15 +131,24 @@ int main(int argc, char **argv)
         {
           int r = ssl_mgr->DoHandshake(cb_fd);
         }
+        else
+        {
+          printf("init finished\n");
+        }
 
-        int pending = 0;
-        if ((pending = ssl_mgr->Pending(cb_fd)) > 0)
+        if (ssl_mgr->Pending(cb_fd) > 0)
         {
           int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
-          pending = min(pending, 1024);
-          printf("Submit Writev1 %d\n", pending);
-          out_iov->iov_len = pending;
-          IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
+          if (r > 0)
+          {
+            printf("Submit Writev1 %d\n", r);
+            out_iov->iov_len = r;
+            IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
+          }
+          else
+          {
+            printf("DrainWriteBIO %d\n", r);
+          }
         }
 
         if (!(flags & IORING_CQE_F_MORE))
@@ -164,15 +173,19 @@ int main(int argc, char **argv)
     {
       printf("Writev res=%d\n", res);
 
-      int pending = 0;
-      if ((pending = ssl_mgr->Pending(cb_fd)) > 0)
+      if (ssl_mgr->Pending(cb_fd) > 0)
       {
         int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
-
-        pending = min(pending, 1024);
-        printf("Submit Writev2 %d\n", pending);
-        out_iov->iov_len = pending;
-        IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
+        if (r > 0)
+        {
+          printf("Submit Writev1 %d\n", r);
+          out_iov->iov_len = r;
+          IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
+        }
+        else
+        {
+          printf("DrainWriteBIO %d\n", r);
+        }
       }
     }
     break;
