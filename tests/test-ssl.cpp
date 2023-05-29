@@ -153,13 +153,15 @@ int main(int argc, char **argv)
         }
         else if (ssl_mgr->PendingRead(cb_fd) > 0)
         {
-          // TODO: Do read
+          // TODO: replace with readv/writev non block
           char read_buf[1025] = {0};
-          int r = ssl_mgr->DrainRead(cb_fd, read_buf, 1024);
+          int r = ssl_mgr->DoRead(cb_fd, read_buf, 1024);
           if (r > 0)
           {
             hexdump(read_buf, r);
-            printf("Read %d: `%s`\n", r, read_buf);
+
+            // echo back
+            ssl_mgr->DoWrite(cb_fd, read_buf, r);
           }
           else
           {
