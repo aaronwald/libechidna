@@ -110,7 +110,6 @@ int main(int argc, char **argv)
       cb_fd = res;
 
       ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false);
-      printf("is server %d\n", ssl_mgr->IsServer(cb_fd));
       int r = IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
       if (r < 0)
       {
@@ -137,15 +136,10 @@ int main(int argc, char **argv)
         if ((pending = ssl_mgr->Pending(cb_fd)) > 0)
         {
           int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
-          printf("Pending %d\n", r);
+          printf("Submit Writev1 %d\n", pending);
           out_iov->iov_len = pending;
           IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
         }
-        // TODO: Do we need to somehow pump read?
-        // https://www.roxlu.com/2014/042/using-openssl-with-memory-bios
-        //  if(!SSL_is_init_finished(to->ssl)) {
-        // SSL_do_handshake(to->ssl);
-        //}
 
         if (!(flags & IORING_CQE_F_MORE))
         {
@@ -166,7 +160,16 @@ int main(int argc, char **argv)
 
     case CB_WRITEV:
     {
-      printf("Writev fd=%d\n", res);
+      printf("Writev res=%d\n", res);
+
+      int pending = 0;
+      if ((pending = ssl_mgr->Pending(cb_fd)) > 0)
+      {
+        int r = ssl_mgr->DrainWriteBIO(cb_fd, out_iov, 1);
+        printf("Submit Writev2 %d\n", pending);
+        out_iov->iov_len = pending;
+        IOURingHelper::SubmitWritev(ring, cb_fd, &out_iov[0], 1, CB_WRITEV);
+      }
     }
     break;
     }

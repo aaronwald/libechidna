@@ -382,17 +382,28 @@ namespace coypu::net::ssl
 
 			if (SSL_CTX_use_certificate_file(_ctx, cert_file.c_str(), SSL_FILETYPE_PEM) <= 0)
 			{
-				fprintf(stderr, "SSL_CTX_use_certificate_file() failed\n");
+				_logger->error("SSL_CTX_use_certificate_file() failed");
 				print_ssl_errors();
 				return 1;
 			}
 
 			if (SSL_CTX_use_PrivateKey_file(_ctx, key_file.c_str(), SSL_FILETYPE_PEM) <= 0)
 			{
-				fprintf(stderr, "SSL_CTX_use_PrivateKey_file() failed\n");
+				_logger->error("SSL_CTX_use_PrivateKey_file() failed");
 				print_ssl_errors();
+
 				return 1;
 			}
+
+			/* check if the private key is valid */
+			int r = SSL_CTX_check_private_key(_ctx);
+			if (r != 1)
+			{
+				printf("Error: checking the private key failed. \n");
+				ERR_print_errors_fp(stderr);
+				return -6;
+			}
+
 			return 0;
 		}
 
@@ -419,7 +430,7 @@ namespace coypu::net::ssl
 			if (!con)
 				return false;
 
-			return SSL_is_init_finished(con->_ssl);
+			return SSL_is_init_finished(con->_ssl) == 1;
 		}
 
 		int Pending(int fd)
@@ -463,12 +474,7 @@ namespace coypu::net::ssl
 				}
 				else
 				{
-					unsigned long err = ERR_get_error();
-					if (_logger)
-					{
-						_logger->warn("Some other error to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
-						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
-					}
+					print_ssl_errors();
 					return -4;
 				}
 			}
@@ -532,7 +538,7 @@ namespace coypu::net::ssl
 					unsigned long err = ERR_get_error();
 					if (_logger)
 					{
-						_logger->warn("Some other error to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
+						_logger->warn("Some other error2 to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
 						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
 					}
 					return -4;
@@ -597,7 +603,7 @@ namespace coypu::net::ssl
 					unsigned long err = ERR_get_error();
 					if (_logger)
 					{
-						_logger->warn("Some other error to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
+						_logger->warn("Some other error3 to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
 						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
 					}
 					return -4;
@@ -662,7 +668,7 @@ namespace coypu::net::ssl
 				if (err == 0)
 					break;
 				ERR_error_string_n(err, error_buffer, 1024);
-				fprintf(stderr, "SSL error: %s\n", error_buffer);
+				_logger->error(error_buffer);
 			}
 		}
 

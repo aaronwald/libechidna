@@ -30,4 +30,4 @@ openssl x509 -in certificate.crt -text -noout
 
 
 openssl s_server -cert certificate.crt -key private.key -accept 4433 -www
-openssl s_client -connect localhost:9988 -CAfile certificate.crt
+openssl s_client -connect localhost:9988 -CAfile certificate.crt  -servername localhost
