@@ -37,15 +37,6 @@ int main(int argc, char **argv)
   uname(&u);
   printf("You are running kernel version: %s\n", u.release);
 
-  std::function<int(int)> set_write_ws = [](int fd)
-  {
-    return 0;
-  };
-  spdlog::set_level(spdlog::level::debug);
-  auto consoleLogger = spdlog::stdout_color_mt("console");
-  auto ssl_mgr = std::make_shared<SSLType>(consoleLogger, set_write_ws, "/etc/ssl/certs/");
-  ssl_mgr->Init();
-
   coypu_io_uring ring = {};
   int r = IOURingHelper::Create(ring);
   if (r < 0)
@@ -53,6 +44,22 @@ int main(int argc, char **argv)
     fprintf(stderr, "Failed to create io_uring\n");
     return EXIT_FAILURE;
   }
+
+  std::function<int(int)> set_write_ws = [&ring](int fd)
+  {
+    printf("Want write %d\n", fd);
+    // TODO: What to write though? Drain from ssl - we need the SSL passed back here
+    // Then on completion we have to check if there is more to write....
+    //    int r = IOURingHelper::SubmitWritev(ring, fd, nullptr, 0, CB_WRITEV);
+    // check SSL_pending
+    return 0;
+  };
+  spdlog::set_level(spdlog::level::debug);
+  auto consoleLogger = spdlog::stdout_color_mt("console");
+  auto ssl_mgr = std::make_shared<SSLType>(consoleLogger, set_write_ws, "/etc/ssl/certs/");
+
+  ssl_mgr->Init();
+  ssl_mgr->SetCertificates("certificate.crt", "private.key");
 
   int sockFD = socket(AF_INET, SOCK_STREAM, 0);
   assert(sockFD > 0);
@@ -101,10 +108,12 @@ int main(int argc, char **argv)
       cb_fd = res;
 
       ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false);
-      int acceptr = ssl_mgr->Accept(cb_fd);
-      printf("%d\n", acceptr);
-
-      IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
+      ssl_mgr->SetAccept(cb_fd);
+      int r = IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
+      if (r < 0)
+      {
+        perror("readv");
+      }
     }
     break;
 
@@ -113,8 +122,20 @@ int main(int argc, char **argv)
       if (res > 0)
       {
         // call push read bio
-        printf("SubmitRecv fd=%d\n", cb_fd);
-        ssl_mgr->PushReadBIO(cb_fd, in_iov, 1);
+        in_iov[0].iov_len = res; //. set len to what is there
+        int r = ssl_mgr->PushReadBIO(cb_fd, in_iov, 1);
+        printf("Push read %d\n", r);
+
+        if (!ssl_mgr->IsInitFinished(cb_fd))
+        {
+          int r = ssl_mgr->DoHandshake(cb_fd);
+        }
+
+        // TODO: Do we need to somehow pump read?
+        // https://www.roxlu.com/2014/042/using-openssl-with-memory-bios
+        //  if(!SSL_is_init_finished(to->ssl)) {
+        // SSL_do_handshake(to->ssl);
+        //}
 
         if (!(flags & IORING_CQE_F_MORE))
         {

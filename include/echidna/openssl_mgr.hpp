@@ -163,6 +163,7 @@ namespace coypu::net::ssl
 			return 0;
 		}
 
+		// https://www.roxlu.com/2014/042/using-openssl-with-memory-bios
 		int RegisterWithMemBIO(int fd, const std::string &hostname, bool setConnect = true)
 		{
 			SSL *ssl = SSL_new(_ctx);
@@ -200,7 +201,8 @@ namespace coypu::net::ssl
 			// create mem bio instead of a socket BIO
 			// _fdToCon[fd]->_rbio = BIO_new(BIO_s_mem());
 			// _fdToCon[fd]->_wbio = BIO_new(BIO_s_mem());
-			SSL_set_bio(ssl, BIO_new(BIO_s_mem()), BIO_new(BIO_s_mem()));
+			SSL_set0_rbio(ssl, BIO_new(BIO_s_mem()));
+			SSL_set0_wbio(ssl, BIO_new(BIO_s_mem()));
 
 			if (setConnect)
 			{
@@ -364,6 +366,94 @@ namespace coypu::net::ssl
 			return SSL_connect(con->_ssl);
 		}
 
+		int SetCertificates(const std::string &cert_file, const std::string &key_file)
+		{
+
+			if (SSL_CTX_use_certificate_file(_ctx, cert_file.c_str(), SSL_FILETYPE_PEM) <= 0)
+			{
+				fprintf(stderr, "SSL_CTX_use_certificate_file() failed\n");
+				print_ssl_errors();
+				return 1;
+			}
+
+			if (SSL_CTX_use_PrivateKey_file(_ctx, key_file.c_str(), SSL_FILETYPE_PEM) <= 0)
+			{
+				fprintf(stderr, "SSL_CTX_use_PrivateKey_file() failed\n");
+				print_ssl_errors();
+				return 1;
+			}
+			return 0;
+		}
+
+		bool SetAccept(int fd)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return false;
+			if (!_fdToCon[fd])
+				return false;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return false;
+
+			printf("set accept state\n");
+			SSL_set_accept_state(con->_ssl);
+			return true;
+		}
+
+		bool IsInitFinished(int fd)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return false;
+			if (!_fdToCon[fd])
+				return false;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return false;
+
+			return SSL_is_init_finished(con->_ssl);
+		}
+
+		int DoHandshake(int fd)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return false;
+			if (!_fdToCon[fd])
+				return false;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return false;
+
+			int xret = SSL_do_handshake(con->_ssl);
+			if (xret != 1)
+			{
+				int ret = SSL_get_error(con->_ssl, xret);
+				if (ret == SSL_ERROR_WANT_READ)
+				{
+					_logger->info("DoHandshake Wantread");
+
+					return 0;
+				}
+				else if (ret == SSL_ERROR_WANT_WRITE)
+				{
+					_logger->info("DoHandshake Want write");
+					_set_write(con->_fd);
+					return 0;
+				}
+				else
+				{
+					unsigned long err = ERR_get_error();
+					if (_logger)
+					{
+						_logger->warn("Some other error to handle {0} {1} {2} [{3}]", xret, ret, err, ERR_error_string(err, nullptr));
+						_logger->warn("Some other error to handle {0} [{1}]", err, ERR_reason_error_string(err));
+					}
+					return -4;
+				}
+			}
+
+			return xret;
+		}
+
 		int Accept(int fd)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
@@ -375,20 +465,24 @@ namespace coypu::net::ssl
 				return -3;
 
 			int xret = SSL_accept(con->_ssl);
-			if (xret <= 0)
+			if (xret != 1)
 			{
 				int ret = SSL_get_error(con->_ssl, xret);
 				if (ret == SSL_ERROR_WANT_READ)
 				{
+					_logger->info("Want read");
+
 					return 0;
 				}
 				else if (ret == SSL_ERROR_WANT_WRITE)
 				{
+					_logger->info("Want write");
 					_set_write(con->_fd);
 					return 0;
 				}
 				else if (ret == SSL_ERROR_ZERO_RETURN)
 				{
+					_logger->info("Want error zero none");
 					return 0;
 				}
 				else if (ret == SSL_ERROR_NONE)
@@ -537,6 +631,19 @@ namespace coypu::net::ssl
 		OpenSSLManager(const OpenSSLManager &other) = delete;
 		OpenSSLManager &operator=(const OpenSSLManager &other) = delete;
 
+		void print_ssl_errors()
+		{
+			char error_buffer[1024];
+			while (1)
+			{
+				unsigned long err = ERR_get_error();
+				if (err == 0)
+					break;
+				ERR_error_string_n(err, error_buffer, 1024);
+				fprintf(stderr, "SSL error: %s\n", error_buffer);
+			}
+		}
+
 		LogTrait _logger;
 		std::function<int(int)> _set_write;
 		std::vector<std::shared_ptr<SSLConnection>> _fdToCon;
@@ -620,6 +727,7 @@ namespace coypu::net::ssl
 
 		return preverify_ok;
 	}
+
 }
 
 #endif
