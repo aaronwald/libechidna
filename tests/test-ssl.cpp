@@ -1,5 +1,6 @@
 #include "echidna/event_hlpr.hpp"
 #include "echidna/openssl_mgr.hpp"
+#include "echidna/mem.hpp"
 #include "echidna/tcp.hpp"
 #include <string>
 #include <fcntl.h>
@@ -18,6 +19,7 @@ using namespace std;
 using namespace coypu::event;
 using namespace coypu::net::ssl;
 using namespace coypu::tcp;
+using namespace coypu::mem;
 
 typedef std::shared_ptr<spdlog::logger> LogType;
 typedef OpenSSLManager<LogType> SSLType;
@@ -113,12 +115,21 @@ int main(int argc, char **argv)
     perror("accept");
     return EXIT_FAILURE;
   }
+
   // setup buffers
   uint32_t buf_size = 4096;
   uint16_t buf_group_id = 13;
   int num_bufs = 1024;
   void *buffers = nullptr;
+  size_t pageSize = MemManager::GetPageSize();
+  if ((buf_size * num_bufs) % pageSize)
+  {
+    printf("Buffer size * num buffers must be a multiple of page size %zu\n", pageSize);
+    return EXIT_FAILURE;
+  }
+
   r = posix_memalign(&buffers, 4096, buf_size * num_bufs);
+
   if (r != 0)
   {
     perror("posix_memalign");
@@ -143,9 +154,16 @@ int main(int argc, char **argv)
   struct iovec in_iov[1] = {{in_data, 1024}};
   struct iovec out_iov[1] = {{out_data, 1024}};
 
-  auto process_ring_completions = [&accept_addr, &ring, &in_iov, &out_iov, ssl_mgr, consoleLogger](int res, uint64_t userdata, int flags)
+  auto process_ring_completions = [&accept_addr, &ring, &in_iov, &out_iov, ssl_mgr, consoleLogger, &buffers, buf_group_id, buf_size](int res, uint64_t userdata, int flags)
   {
     static int cb_fd = 0;
+
+    if (flags & IORING_CQE_F_BUFFER)
+    {
+      uint16_t buf_id = flags >> IORING_CQE_BUFFER_SHIFT;
+      consoleLogger->info("Group:{0} Buffer:{1}", buf_group_id, buf_id);
+      // offset = buffers + (buf_size * buf_id);
+    }
 
     switch (userdata)
     {

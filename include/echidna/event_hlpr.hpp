@@ -188,15 +188,15 @@ namespace coypu::event
 		// buffer select and len = 0?
 		//
 		// https://github.com/torvalds/linux/blob/51f269a6ecc701f9932eff5b253a1f89746be6bd/io_uring/net.c#L576
-		static inline int SubmitRecvMulti(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
+		static inline int SubmitRecvMulti(coypu_io_uring &ring, int file_fd, uint16_t buf_group_id, uint64_t userdata)
 		{
 			struct io_uring_sqe sqe;
 			::memset(&sqe, 0, sizeof(sqe));
 			sqe.fd = file_fd;
 			sqe.opcode = IORING_OP_RECV; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
-			sqe.addr = (unsigned long long)buf;
-			sqe.len = len;
 			sqe.user_data = (unsigned long long)userdata; // user data
+			sqe.flags = IOSQE_BUFFER_SELECT;
+			sqe.buf_group = buf_group_id;
 			sqe.ioprio |= IORING_RECV_MULTISHOT;
 			return AddToSQE(ring, &sqe);
 		}
