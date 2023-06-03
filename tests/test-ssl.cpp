@@ -147,23 +147,12 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  // TODO Setup buffer manager for the connections, use bipbuf?
-  char in_data[1024];
   char out_data[1024];
-
-  struct iovec in_iov[1] = {{in_data, 1024}};
   struct iovec out_iov[1] = {{out_data, 1024}};
 
-  auto process_ring_completions = [&accept_addr, &ring, &in_iov, &out_iov, ssl_mgr, consoleLogger, &buffers, buf_group_id, buf_size](int res, uint64_t userdata, int flags)
+  auto process_ring_completions = [&accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, buf_group_id, buf_size](int res, uint64_t userdata, int flags)
   {
     static int cb_fd = 0;
-
-    if (flags & IORING_CQE_F_BUFFER)
-    {
-      uint16_t buf_id = flags >> IORING_CQE_BUFFER_SHIFT;
-      consoleLogger->info("Group:{0} Buffer:{1}", buf_group_id, buf_id);
-      // offset = buffers + (buf_size * buf_id);
-    }
 
     switch (userdata)
     {
@@ -175,7 +164,7 @@ int main(int argc, char **argv)
       ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false /* set to accept state for server*/);
 
       // set our first read request (should be multishot but not supported yet)
-      int r = IOURingHelper::SubmitRecv(ring, cb_fd, reinterpret_cast<char *>(in_iov[0].iov_base), in_iov[0].iov_len, CB_RECV);
+      int r = IOURingHelper::SubmitRecvMulti(ring, cb_fd, buf_group_id, CB_RECV);
       if (r < 0)
       {
         consoleLogger->error("Failed to submit recv");
@@ -187,9 +176,19 @@ int main(int argc, char **argv)
     {
       if (res > 0)
       {
-        // call push read bio
-        in_iov[0].iov_len = res; //. set len to what is there
-        int r = ssl_mgr->PushReadBIO(cb_fd, in_iov, 1);
+        uint16_t buf_id = flags >> IORING_CQE_BUFFER_SHIFT;
+        if (flags & IORING_CQE_F_BUFFER)
+        {
+          consoleLogger->info("Group:{0} Buffer:{1}", buf_group_id, buf_id);
+        }
+        else
+        {
+          printf("Expecting buffer flag");
+          return;
+        }
+
+        char *offset = reinterpret_cast<char *>(buffers) + (buf_size * buf_id);
+        int r = ssl_mgr->PushReadBIO(cb_fd, offset, res);
 
         if (!ssl_mgr->IsInitFinished(cb_fd))
         {
@@ -237,8 +236,7 @@ int main(int argc, char **argv)
 
         if (!(flags & IORING_CQE_F_MORE))
         {
-          in_iov[0].iov_len = 1024;
-          int r = IOURingHelper::SubmitRecv(ring, cb_fd, reinterpret_cast<char *>(in_iov[0].iov_base), in_iov[0].iov_len, CB_RECV);
+          int r = IOURingHelper::SubmitRecvMulti(ring, cb_fd, buf_group_id, CB_RECV);
           if (r < 0)
           {
             consoleLogger->error("Failed to submit recv");

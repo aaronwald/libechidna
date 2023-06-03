@@ -252,6 +252,28 @@ namespace coypu::net::ssl
 			return BIO_write(rbio, iovec[0].iov_base, iovec[0].iov_len);
 		}
 
+		int PushReadBIO(int fd, void *data, int len)
+		{
+			if (static_cast<size_t>(fd) >= _fdToCon.size())
+				return -1;
+			if (!_fdToCon[fd])
+				return -2;
+			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
+			if (!con)
+				return -3;
+
+			SSL *ssl = con->_ssl;
+			if (!ssl)
+				return -5;
+
+			BIO *rbio = SSL_get_rbio(ssl);
+			if (!rbio)
+				return -6;
+
+			// returns how much written
+			return BIO_write(rbio, data, len);
+		}
+
 		// direct bio manipulation, not calling ssl_read or ssl_write
 		// for use with completions to move data in/out of ssl
 		int DrainWriteBIO(int fd, const struct iovec *iovec, int count)
