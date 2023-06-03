@@ -165,6 +165,29 @@ namespace coypu::event
 			return AddToSQE(ring, &sqe);
 		}
 
+		// allocate num_bufs * buf_size and call posix_memalign
+		static inline int SubmitProvideBuffers(coypu_io_uring &ring,
+																					 void *addr,
+																					 int num_bufs,
+																					 uint32_t buf_size,
+																					 uint16_t buf_group_id,
+																					 uint64_t userdata)
+		{
+			struct io_uring_sqe sqe;
+			::memset(&sqe, 0, sizeof(sqe));
+			sqe.fd = num_bufs; // fd is number of buffers
+			sqe.opcode = IORING_OP_PROVIDE_BUFFERS;
+			sqe.addr = (unsigned long long)addr;
+			sqe.len = buf_size;														// size of a buffer
+			sqe.user_data = (unsigned long long)userdata; // user data
+			sqe.buf_group = buf_group_id;									// buf_group_id
+			sqe.off = 0;																	// starting offset
+			return AddToSQE(ring, &sqe);
+		}
+
+		// buffer select and len = 0?
+		//
+		// https://github.com/torvalds/linux/blob/51f269a6ecc701f9932eff5b253a1f89746be6bd/io_uring/net.c#L576
 		static inline int SubmitRecvMulti(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
 		{
 			struct io_uring_sqe sqe;

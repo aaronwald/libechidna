@@ -26,7 +26,8 @@ enum TEST_CALLBACK
 {
   CB_RECV,
   CB_WRITEV,
-  CB_ACCEPT
+  CB_ACCEPT,
+  CB_BUFFERS
 };
 
 constexpr int LISTEN_PORT = 9988;
@@ -107,6 +108,33 @@ int main(int argc, char **argv)
   struct sockaddr accept_addr;
   socklen_t accept_addr_len;
   r = IOURingHelper::SubmitAcceptNonBlockMulti(ring, sockFD, &accept_addr, &accept_addr_len, CB_ACCEPT);
+  if (r < 0)
+  {
+    perror("accept");
+    return EXIT_FAILURE;
+  }
+  // setup buffers
+  uint32_t buf_size = 4096;
+  uint16_t buf_group_id = 13;
+  int num_bufs = 1024;
+  void *buffers = nullptr;
+  r = posix_memalign(&buffers, 4096, buf_size * num_bufs);
+  if (r != 0)
+  {
+    perror("posix_memalign");
+    return EXIT_FAILURE;
+  }
+  r = IOURingHelper::SubmitProvideBuffers(ring,
+                                          buffers,
+                                          num_bufs,
+                                          buf_size,
+                                          buf_group_id,
+                                          CB_BUFFERS);
+  if (r < 0)
+  {
+    perror("provide buffers");
+    return EXIT_FAILURE;
+  }
 
   // TODO Setup buffer manager for the connections, use bipbuf?
   char in_data[1024];
@@ -129,10 +157,10 @@ int main(int argc, char **argv)
       ssl_mgr->RegisterWithMemBIO(cb_fd, "localhost", false /* set to accept state for server*/);
 
       // set our first read request (should be multishot but not supported yet)
-      int r = IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
+      int r = IOURingHelper::SubmitRecv(ring, cb_fd, reinterpret_cast<char *>(in_iov[0].iov_base), in_iov[0].iov_len, CB_RECV);
       if (r < 0)
       {
-        consoleLogger->error("Failed to submit readv");
+        consoleLogger->error("Failed to submit recv");
       }
     }
     break;
@@ -192,7 +220,11 @@ int main(int argc, char **argv)
         if (!(flags & IORING_CQE_F_MORE))
         {
           in_iov[0].iov_len = 1024;
-          IOURingHelper::SubmitReadv(ring, cb_fd, &in_iov[0], 1, CB_RECV);
+          int r = IOURingHelper::SubmitRecv(ring, cb_fd, reinterpret_cast<char *>(in_iov[0].iov_base), in_iov[0].iov_len, CB_RECV);
+          if (r < 0)
+          {
+            consoleLogger->error("Failed to submit recv");
+          }
         }
       }
       else if (res == 0)
@@ -224,6 +256,16 @@ int main(int argc, char **argv)
       }
     }
     break;
+
+    case CB_BUFFERS:
+    {
+      consoleLogger->info("Buffers provided");
+    }
+    break;
+
+    default:
+      consoleLogger->error("Unknown callback {0}", userdata);
+      break;
     }
   };
 
