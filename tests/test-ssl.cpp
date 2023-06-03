@@ -54,8 +54,13 @@ void hexdump(void *ptr, int buflen)
   }
 }
 
+constexpr int probe_size = sizeof(io_uring_probe) + (sizeof(io_uring_probe_op) * IORING_OP_LAST);
+
 int main(int argc, char **argv)
 {
+  spdlog::set_level(spdlog::level::debug);
+  auto consoleLogger = spdlog::stdout_color_mt("console");
+
   struct utsname u;
   uname(&u);
   printf("You are running kernel version: %s\n", u.release);
@@ -68,14 +73,29 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+  // IORING_OP_LAST
+  char probe_buf[probe_size];
+  ::memset(probe_buf, 0, probe_size);
+  r = io_uring_register(ring._fd, IORING_REGISTER_PROBE, &probe_buf, IORING_OP_LAST);
+  if (r < 0)
+  {
+    perror("io_uring_register");
+    return EXIT_FAILURE;
+  }
+
+  struct io_uring_probe *probe = reinterpret_cast<struct io_uring_probe *>(probe_buf);
+  for (int i = 0; i < IORING_OP_LAST; ++i)
+  {
+    consoleLogger->info("{} supported {}", i, probe->ops[i].flags & IO_URING_OP_SUPPORTED ? "true" : "false");
+  }
+
   std::function<int(int)> set_write_ws = [&ring](int fd)
   {
     // with open ssl this is a no op.
     // we check pending to see when to schedule a writev
     return 0;
   };
-  spdlog::set_level(spdlog::level::debug);
-  auto consoleLogger = spdlog::stdout_color_mt("console");
+
   auto ssl_mgr = std::make_shared<SSLType>(consoleLogger, set_write_ws, "/etc/ssl/certs/");
 
   ssl_mgr->Init();
