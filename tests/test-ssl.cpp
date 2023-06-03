@@ -146,6 +146,10 @@ int main(int argc, char **argv)
     perror("provide buffers");
     return EXIT_FAILURE;
   }
+  else
+  {
+    consoleLogger->info("Provide buffers:{}", num_bufs);
+  }
 
   char out_data[1024];
   struct iovec out_iov[1] = {{out_data, 1024}};
@@ -234,6 +238,7 @@ int main(int argc, char **argv)
           }
         }
 
+        // only submit if this is no longer set, but with multi shot it should be
         if (!(flags & IORING_CQE_F_MORE))
         {
           int r = IOURingHelper::SubmitRecvMulti(ring, cb_fd, buf_group_id, CB_RECV);
