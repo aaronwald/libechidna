@@ -455,7 +455,7 @@ namespace coypu::net::ssl
 			return SSL_is_init_finished(con->_ssl) == 1;
 		}
 
-		int PendingWrite(int fd)
+		size_t PendingWrite(int fd)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
@@ -468,7 +468,7 @@ namespace coypu::net::ssl
 			return BIO_ctrl_pending(SSL_get_wbio(con->_ssl));
 		}
 
-		int PendingRead(int fd)
+		size_t PendingRead(int fd)
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
