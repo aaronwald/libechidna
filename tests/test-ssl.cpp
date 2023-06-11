@@ -24,7 +24,7 @@ using namespace coypu::mem;
 typedef std::shared_ptr<spdlog::logger> LogType;
 typedef OpenSSLManager<LogType> SSLType;
 
-enum TEST_CALLBACK
+enum TEST_CALLBACK : char
 {
   CB_RECV,
   CB_WRITEV,
@@ -33,6 +33,13 @@ enum TEST_CALLBACK
 };
 
 constexpr int LISTEN_PORT = 9988;
+
+struct IOCallback
+{
+  int _fd;
+  TEST_CALLBACK _cb;
+  char _pad[3];
+} __attribute__((__packed__));
 
 void hexdump(void *ptr, int buflen)
 {
@@ -58,7 +65,8 @@ constexpr int probe_size = sizeof(io_uring_probe) + (sizeof(io_uring_probe_op) *
 
 int main(int argc, char **argv)
 {
-  spdlog::set_level(spdlog::level::debug);
+  static_assert(sizeof(IOCallback) == sizeof(uint64_t), "IOCallback size must be 64 bytes");
+  spdlog::set_level(spdlog::level::info);
   auto consoleLogger = spdlog::stdout_color_mt("console");
 
   struct utsname u;
@@ -86,7 +94,7 @@ int main(int argc, char **argv)
   struct io_uring_probe *probe = reinterpret_cast<struct io_uring_probe *>(probe_buf);
   for (int i = 0; i < IORING_OP_LAST; ++i)
   {
-    consoleLogger->info("{} supported {}", i, probe->ops[i].flags & IO_URING_OP_SUPPORTED ? "true" : "false");
+    consoleLogger->debug("{} supported {}", i, probe->ops[i].flags & IO_URING_OP_SUPPORTED ? "true" : "false");
   }
 
   std::function<int(int)> set_write_ws = [&ring](int fd)
@@ -178,6 +186,8 @@ int main(int argc, char **argv)
   {
     static int cb_fd = 0;
     static int used_buf_count = 0;
+
+    struct IOCallback cb = *(struct IOCallback *)&userdata;
 
     switch (userdata)
     {
@@ -329,7 +339,7 @@ int main(int argc, char **argv)
 
     case CB_BUFFERS:
     {
-      consoleLogger->info("Buffers provided");
+      consoleLogger->debug("Buffers provided");
     }
     break;
 
