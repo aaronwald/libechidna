@@ -188,11 +188,9 @@ int main(int argc, char **argv)
 
   char out_data[1024];
   struct iovec out_iov[1] = {{out_data, 1024}};
-
-  auto process_ring_completions = [&accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size](int res, uint64_t userdata, int flags)
+  int used_buf_count = 0;
+  auto process_ring_completions = [&accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int res, uint64_t userdata, int flags)
   {
-    static int used_buf_count = 0;
-
     struct IOCallback cb = *(struct IOCallback *)&userdata;
     consoleLogger->info("Completion fd={}", cb._fd);
 
