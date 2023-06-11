@@ -497,13 +497,10 @@ namespace coypu::net::ssl
 				int ret = SSL_get_error(con->_ssl, xret);
 				if (ret == SSL_ERROR_WANT_READ)
 				{
-					_logger->info("DoHandshake Wantread");
-
 					return 0;
 				}
 				else if (ret == SSL_ERROR_WANT_WRITE)
 				{
-					_logger->info("DoHandshake Want write");
 					_set_write(con->_fd);
 					return 0;
 				}

@@ -139,7 +139,7 @@ int main(int argc, char **argv)
   // setup buffers
   uint32_t buf_size = 4096;
   uint16_t buf_group_id = 13;
-  int num_bufs = 1024;
+  int num_bufs = 4;
   void *buffers = nullptr;
   size_t pageSize = MemManager::GetPageSize();
   if ((buf_size * num_bufs) % pageSize)
@@ -174,9 +174,10 @@ int main(int argc, char **argv)
   char out_data[1024];
   struct iovec out_iov[1] = {{out_data, 1024}};
 
-  auto process_ring_completions = [&accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, buf_group_id, buf_size](int res, uint64_t userdata, int flags)
+  auto process_ring_completions = [&accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size](int res, uint64_t userdata, int flags)
   {
     static int cb_fd = 0;
+    static int used_buf_count = 0;
 
     switch (userdata)
     {
@@ -209,6 +210,31 @@ int main(int argc, char **argv)
         {
           printf("Expecting buffer flag");
           return;
+        }
+
+        ++used_buf_count;
+        if (used_buf_count == num_bufs)
+        {
+          consoleLogger->info("Used all buffers");
+          used_buf_count = 0;
+
+          int r = IOURingHelper::SubmitProvideBuffers(ring,
+                                                      buffers,
+                                                      num_bufs,
+                                                      buf_size,
+                                                      buf_group_id,
+                                                      CB_BUFFERS);
+          if (r < 0)
+          {
+            perror("SubmitProvideBuffers");
+          }
+
+          // start read again
+          r = IOURingHelper::SubmitRecvMulti(ring, cb_fd, buf_group_id, CB_RECV);
+          if (r < 0)
+          {
+            consoleLogger->error("SubmitRecvMulti");
+          }
         }
 
         char *offset = reinterpret_cast<char *>(buffers) + (buf_size * buf_id);
@@ -274,8 +300,11 @@ int main(int argc, char **argv)
       }
       else
       {
+        if (-res == ENOBUFS)
+        {
+        }
         // error
-        consoleLogger->error("Readv fd={0} {1}", res, strerror(-res));
+        consoleLogger->error("Readv res={0} {1}", -res, strerror(-res));
       }
     }
     break;
