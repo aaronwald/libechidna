@@ -338,6 +338,7 @@ int main(int argc, char **argv)
       consoleLogger->info("Writev res={0}", res);
       if (ssl_mgr->PendingWrite(cb._fd) > 0)
       {
+        out_iov[0].iov_len = 1024;
         int r = ssl_mgr->DrainWriteBIO(cb._fd, out_iov, 1);
         consoleLogger->info("Writev fd={} drain={}", cb._fd, r);
 
