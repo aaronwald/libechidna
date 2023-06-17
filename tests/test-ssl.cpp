@@ -71,7 +71,7 @@ constexpr int probe_size = sizeof(io_uring_probe) + (sizeof(io_uring_probe_op) *
 int main(int argc, char **argv)
 {
   static_assert(sizeof(IOCallback) == sizeof(uint64_t), "IOCallback size must be 64 bytes");
-  spdlog::set_level(spdlog::level::debug);
+  spdlog::set_level(spdlog::level::info);
   auto consoleLogger = spdlog::stdout_color_mt("console");
 
   struct utsname u;
@@ -192,7 +192,7 @@ int main(int argc, char **argv)
   auto process_ring_completions = [&accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int res, uint64_t userdata, int flags)
   {
     struct IOCallback cb = *(struct IOCallback *)&userdata;
-    consoleLogger->info("Completion fd={}", cb._fd);
+    consoleLogger->debug("Completion fd={}", cb._fd);
 
     switch (cb._cb)
     {
@@ -214,14 +214,14 @@ int main(int argc, char **argv)
 
     case CB_RECV:
     {
-      consoleLogger->info("Readv res={0}", res);
+      consoleLogger->debug("Readv res={0}", res);
 
       if (res > 0)
       {
         uint16_t buf_id = flags >> IORING_CQE_BUFFER_SHIFT;
         if (flags & IORING_CQE_F_BUFFER)
         {
-          consoleLogger->info("Group:{0} Buffer:{1}", buf_group_id, buf_id);
+          consoleLogger->debug("Group:{0} Buffer:{1}", buf_group_id, buf_id);
         }
         else
         {
@@ -333,12 +333,12 @@ int main(int argc, char **argv)
 
     case CB_WRITEV:
     {
-      consoleLogger->info("Writev res={0}", res);
+      consoleLogger->debug("Writev res={0}", res);
       if (ssl_mgr->PendingWrite(cb._fd) > 0)
       {
         out_iov[0].iov_len = 1024;
         int r = ssl_mgr->DrainWriteBIO(cb._fd, out_iov, 1);
-        consoleLogger->info("Writev fd={} drain={}", cb._fd, r);
+        consoleLogger->debug("Writev fd={} drain={}", cb._fd, r);
 
         if (r > 0)
         {
