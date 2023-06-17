@@ -24,23 +24,15 @@ using namespace coypu::mem;
 typedef std::shared_ptr<spdlog::logger> LogType;
 typedef OpenSSLManager<LogType> SSLType;
 
-enum TEST_CALLBACK : char
-{
-  CB_RECV,
-  CB_WRITEV,
-  CB_ACCEPT,
-  CB_BUFFERS
-};
-
 constexpr int LISTEN_PORT = 9988;
 
 struct IOCallback
 {
   int _fd;
-  TEST_CALLBACK _cb;
+  uint8_t _cb;
   char _pad[3];
 
-  IOCallback(int fd, TEST_CALLBACK cb) : _fd(fd), _cb(cb)
+  IOCallback(int fd, uint8_t cb) : _fd(fd), _cb(cb)
   {
     _pad[0] = _pad[1] = _pad[2] = 0;
   }
@@ -142,7 +134,7 @@ int main(int argc, char **argv)
 
   struct sockaddr accept_addr;
   socklen_t accept_addr_len;
-  struct IOCallback cb_accept(sockFD, CB_ACCEPT);
+  struct IOCallback cb_accept(sockFD, IORING_OP_ACCEPT);
   r = IOURingHelper::SubmitAcceptNonBlockMulti(ring, sockFD, &accept_addr, &accept_addr_len, *reinterpret_cast<uint64_t *>(&cb_accept));
   if (r < 0)
   {
@@ -169,7 +161,7 @@ int main(int argc, char **argv)
     perror("posix_memalign");
     return EXIT_FAILURE;
   }
-  struct IOCallback cb_buffers(sockFD, CB_BUFFERS);
+  struct IOCallback cb_buffers(sockFD, IORING_OP_PROVIDE_BUFFERS);
   r = IOURingHelper::SubmitProvideBuffers(ring,
                                           buffers,
                                           num_bufs,
@@ -194,25 +186,28 @@ int main(int argc, char **argv)
     struct IOCallback cb = *(struct IOCallback *)&userdata;
     consoleLogger->debug("Completion fd={}", cb._fd);
 
+    // onAccept, onRecv, onWritev, onBuffers
+
     switch (cb._cb)
     {
-    case CB_ACCEPT:
+    case IORING_OP_ACCEPT:
     {
       consoleLogger->info("Accept fd={0} {1}", res, inet_ntoa(((struct sockaddr_in *)&accept_addr)->sin_addr));
 
       ssl_mgr->RegisterWithMemBIO(res, "localhost", false /* set to accept state for server*/);
 
       // set our first read request (should be multishot but not supported yet)
-      struct IOCallback cb_recv(res, CB_RECV);
+      struct IOCallback cb_recv(res, IORING_OP_RECV);
       int r = IOURingHelper::SubmitRecvMulti(ring, res, buf_group_id, *reinterpret_cast<uint64_t *>(&cb_recv));
       if (r < 0)
-      {
-        consoleLogger->error("Failed to submit recv");
-      }
+        if (r < 0)
+        {
+          consoleLogger->error("Failed to submit recv");
+        }
     }
     break;
 
-    case CB_RECV:
+    case IORING_OP_RECV:
     {
       consoleLogger->debug("Readv res={0}", res);
 
@@ -235,7 +230,7 @@ int main(int argc, char **argv)
           consoleLogger->info("Used all buffers");
           used_buf_count = 0;
 
-          struct IOCallback cb_buffers(ring._fd, CB_BUFFERS);
+          struct IOCallback cb_buffers(ring._fd, IORING_OP_PROVIDE_BUFFERS);
           int r = IOURingHelper::SubmitProvideBuffers(ring,
                                                       buffers,
                                                       num_bufs,
@@ -248,7 +243,7 @@ int main(int argc, char **argv)
           }
 
           // start read again
-          struct IOCallback cb_recv(cb._fd, CB_RECV);
+          struct IOCallback cb_recv(cb._fd, IORING_OP_RECV);
           r = IOURingHelper::SubmitRecvMulti(ring, cb._fd, buf_group_id, *reinterpret_cast<uint64_t *>(&cb_recv));
           if (r < 0)
           {
@@ -296,7 +291,7 @@ int main(int argc, char **argv)
           if (r > 0)
           {
             out_iov->iov_len = r;
-            struct IOCallback cb_writev(cb._fd, CB_WRITEV);
+            struct IOCallback cb_writev(cb._fd, IORING_OP_WRITEV);
             IOURingHelper::SubmitWritev(ring, cb._fd, &out_iov[0], 1, *reinterpret_cast<uint64_t *>(&cb_writev));
           }
           else
@@ -308,7 +303,7 @@ int main(int argc, char **argv)
         // only submit if this is no longer set, but with multi shot it should be
         if (!(flags & IORING_CQE_F_MORE))
         {
-          struct IOCallback cb_recv(cb._fd, CB_RECV);
+          struct IOCallback cb_recv(cb._fd, IORING_RECV_MULTISHOT);
           int r = IOURingHelper::SubmitRecvMulti(ring, cb._fd, buf_group_id, *reinterpret_cast<uint64_t *>(&cb_recv));
           if (r < 0)
           {
@@ -331,7 +326,7 @@ int main(int argc, char **argv)
     }
     break;
 
-    case CB_WRITEV:
+    case IORING_OP_WRITEV:
     {
       consoleLogger->debug("Writev res={0}", res);
       if (ssl_mgr->PendingWrite(cb._fd) > 0)
@@ -343,7 +338,7 @@ int main(int argc, char **argv)
         if (r > 0)
         {
           out_iov->iov_len = r;
-          struct IOCallback cb_writev(cb._fd, CB_WRITEV);
+          struct IOCallback cb_writev(cb._fd, IORING_OP_WRITEV);
           IOURingHelper::SubmitWritev(ring, cb._fd, &out_iov[0], 1, *reinterpret_cast<uint64_t *>(&cb_writev));
         }
         else
@@ -354,7 +349,7 @@ int main(int argc, char **argv)
     }
     break;
 
-    case CB_BUFFERS:
+    case IORING_OP_PROVIDE_BUFFERS:
     {
       consoleLogger->debug("Buffers provided");
     }
