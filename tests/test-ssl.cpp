@@ -163,11 +163,8 @@ int main(int argc, char **argv)
 
   IOCallbackManager iom;
 
-  char out_data[1024];
-  struct iovec out_iov[1] = {{out_data, 1024}};
-
   int used_buf_count = 0;
-  auto process_ring_completions = [&iom, &accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int res, uint64_t userdata, int flags)
+  auto process_ring_completions = [&iom, &accept_addr, &ring, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int res, uint64_t userdata, int flags)
   {
     struct IOCallback cb = *(struct IOCallback *)&userdata;
     consoleLogger->debug("Completion fd={}", cb._fd);
@@ -275,13 +272,15 @@ int main(int argc, char **argv)
 
         if (ssl_mgr->PendingWrite(cb._fd) > 0)
         {
-          out_iov[0].iov_len = 1024;
-          int r = ssl_mgr->DrainWriteBIO(cb._fd, out_iov, 1);
+          std::shared_ptr<struct iovec> outv = iom.GetWriteCache(cb._fd);
+
+          outv->iov_len = IOCallbackManager::IOV_CACHE_BUF;
+          int r = ssl_mgr->DrainWriteBIO(cb._fd, outv.get(), 1);
           if (r > 0)
           {
-            out_iov->iov_len = r;
+            outv->iov_len = r;
             struct IOCallback cb_writev(cb._fd, IORING_OP_WRITEV);
-            IOURingHelper::SubmitWritev(ring, cb._fd, &out_iov[0], 1, *reinterpret_cast<uint64_t *>(&cb_writev));
+            IOURingHelper::SubmitWritev(ring, cb._fd, outv.get(), 1, *reinterpret_cast<uint64_t *>(&cb_writev));
           }
           else
           {
@@ -320,15 +319,15 @@ int main(int argc, char **argv)
       consoleLogger->debug("Writev res={0}", res);
       if (ssl_mgr->PendingWrite(cb._fd) > 0)
       {
-        out_iov[0].iov_len = 1024;
-        int r = ssl_mgr->DrainWriteBIO(cb._fd, out_iov, 1);
-        consoleLogger->debug("Writev fd={} drain={}", cb._fd, r);
+        std::shared_ptr<struct iovec> outv = iom.GetWriteCache(cb._fd);
 
+        outv->iov_len = IOCallbackManager::IOV_CACHE_BUF;
+        int r = ssl_mgr->DrainWriteBIO(cb._fd, outv.get(), 1);
         if (r > 0)
         {
-          out_iov->iov_len = r;
+          outv->iov_len = r;
           struct IOCallback cb_writev(cb._fd, IORING_OP_WRITEV);
-          IOURingHelper::SubmitWritev(ring, cb._fd, &out_iov[0], 1, *reinterpret_cast<uint64_t *>(&cb_writev));
+          IOURingHelper::SubmitWritev(ring, cb._fd, outv.get(), 1, *reinterpret_cast<uint64_t *>(&cb_writev));
         }
         else
         {
