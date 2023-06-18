@@ -430,7 +430,8 @@ namespace coypu::event
 
       _cbs[fd] = std::make_shared<IOCallbacks>();
       _iov_cache[fd] = std::make_shared<struct iovec>();
-      _iov_buf[fd] = std::make_shared<char[IOV_CACHE_BUF]>(); // 1k
+      _iov_buf[fd] = std::make_shared<char>();
+      _iov_buf[fd].reset(new char[IOV_CACHE_BUF]);
 
       _iov_cache[fd]->iov_base = _iov_buf[fd].get();
       _iov_cache[fd]->iov_len = IOV_CACHE_BUF;
@@ -486,7 +487,7 @@ namespace coypu::event
     std::vector<std::shared_ptr<IOCallbacks>> _cbs;
 
     std::vector<std::shared_ptr<struct iovec>> _iov_cache;
-    std::vector<std::shared_ptr<char[IOV_CACHE_BUF]>> _iov_buf;
+    std::vector<std::shared_ptr<char>> _iov_buf;
   };
 
 } //  coypu::event
