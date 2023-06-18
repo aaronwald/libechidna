@@ -372,7 +372,7 @@ namespace coypu::event
   class IOCallbacks
   {
   public:
-    typedef std::function<void(int, uint64_t, int)> cb_func_t;
+    typedef std::function<void(int, int, int)> cb_func_t; // fd, res, userdata
 
     IOCallbacks()
     {
@@ -386,11 +386,11 @@ namespace coypu::event
       _cbs[cb] = f;
     }
 
-    void Fire(io_uring_op cb, int res, uint64_t user_data, int flags)
+    void Fire(io_uring_op cb, int fd, int res, int flags)
     {
       if (_cbs[cb])
       {
-        _cbs[cb](res, user_data, flags);
+        _cbs[cb](fd, res, flags);
       }
     }
 
@@ -471,11 +471,11 @@ namespace coypu::event
       _cbs[fd]->SetCallback(cb, f);
     }
 
-    void Fire(int fd, io_uring_op cb, int res, uint64_t user_data, int flags)
+    void Fire(int fd, io_uring_op cb, int res, int flags)
     {
       assert(static_cast<size_t>(fd) < _cbs.size());
       assert(_cbs[fd].get() != nullptr);
-      _cbs[fd]->Fire(cb, res, user_data, flags);
+      _cbs[fd]->Fire(cb, fd, res, flags);
     }
 
   private:
