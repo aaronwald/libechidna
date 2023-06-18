@@ -459,13 +459,19 @@ namespace coypu::net::ssl
 		{
 			if (static_cast<size_t>(fd) >= _fdToCon.size())
 				return -1;
+
 			if (!_fdToCon[fd])
 				return -2;
 			std::shared_ptr<SSLConnection> &con = _fdToCon[fd];
 			if (!con)
 				return -3;
 
-			return BIO_ctrl_pending(SSL_get_wbio(con->_ssl));
+			BIO *bio = SSL_get_wbio(con->_ssl);
+			assert(bio);
+			if (!bio)
+				return -4;
+
+			return BIO_ctrl_pending(bio);
 		}
 
 		size_t PendingRead(int fd)

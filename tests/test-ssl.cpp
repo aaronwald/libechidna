@@ -1,7 +1,9 @@
 #include "echidna/event_hlpr.hpp"
+#include "echidna/event_mgr.hpp"
 #include "echidna/openssl_mgr.hpp"
 #include "echidna/mem.hpp"
 #include "echidna/tcp.hpp"
+#include "echidna/string-util.hpp"
 #include <string>
 #include <fcntl.h>
 #include <openssl/ssl.h>
@@ -20,6 +22,7 @@ using namespace coypu::event;
 using namespace coypu::net::ssl;
 using namespace coypu::tcp;
 using namespace coypu::mem;
+using namespace coypu::util;
 
 typedef std::shared_ptr<spdlog::logger> LogType;
 typedef OpenSSLManager<LogType> SSLType;
@@ -37,26 +40,6 @@ struct IOCallback
     _pad[0] = _pad[1] = _pad[2] = 0;
   }
 } __attribute__((__packed__));
-
-void hexdump(void *ptr, int buflen)
-{
-  unsigned char *buf = (unsigned char *)ptr;
-  int i, j;
-  for (i = 0; i < buflen; i += 16)
-  {
-    printf("%06x: ", i);
-    for (j = 0; j < 16; j++)
-      if (i + j < buflen)
-        printf("%02x ", buf[i + j]);
-      else
-        printf("   ");
-    printf(" ");
-    for (j = 0; j < 16; j++)
-      if (i + j < buflen)
-        printf("%c", isprint(buf[i + j]) ? buf[i + j] : '.');
-    printf("\n");
-  }
-}
 
 constexpr int probe_size = sizeof(io_uring_probe) + (sizeof(io_uring_probe_op) * IORING_OP_LAST);
 
@@ -178,15 +161,20 @@ int main(int argc, char **argv)
     consoleLogger->info("Provide buffers:{}", num_bufs);
   }
 
+  IOCallbackManager iom;
+
   char out_data[1024];
   struct iovec out_iov[1] = {{out_data, 1024}};
+
   int used_buf_count = 0;
-  auto process_ring_completions = [&accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int res, uint64_t userdata, int flags)
+  auto process_ring_completions = [&iom, &accept_addr, &ring, &out_iov, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int res, uint64_t userdata, int flags)
   {
     struct IOCallback cb = *(struct IOCallback *)&userdata;
     consoleLogger->debug("Completion fd={}", cb._fd);
 
+    // cache iovec for write
     // onAccept, onRecv, onWritev, onBuffers
+    // cbManager->Fire(cb._fd, cb._cb, res, flags);
 
     switch (cb._cb)
     {
@@ -198,6 +186,7 @@ int main(int argc, char **argv)
 
       // set our first read request (should be multishot but not supported yet)
       struct IOCallback cb_recv(res, IORING_OP_RECV);
+      iom.Register(res);
       int r = IOURingHelper::SubmitRecvMulti(ring, res, buf_group_id, *reinterpret_cast<uint64_t *>(&cb_recv));
       if (r < 0)
         if (r < 0)
@@ -272,7 +261,7 @@ int main(int argc, char **argv)
           int r = ssl_mgr->ReadvNonBlock(cb._fd, &v[0], 1);
           if (r > 0)
           {
-            hexdump(read_buf, r);
+            StringUtil::Hexdump(read_buf, r);
 
             // echo back
             v[0].iov_len = r;

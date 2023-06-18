@@ -368,4 +368,125 @@ namespace coypu::event
     int _fd;
     write_cb_type _set_write;
   };
+
+  class IOCallbacks
+  {
+  public:
+    typedef std::function<void(int, uint64_t, int)> cb_func_t;
+
+    IOCallbacks()
+    {
+      _cbs.resize(IORING_OP_LAST);
+    }
+
+    virtual ~IOCallbacks() {}
+
+    void SetCallback(io_uring_op cb, cb_func_t &f)
+    {
+      _cbs[cb] = f;
+    }
+
+    void Fire(io_uring_op cb, int res, uint64_t user_data, int flags)
+    {
+      if (_cbs[cb])
+      {
+        _cbs[cb](res, user_data, flags);
+      }
+    }
+
+  private:
+    IOCallbacks(const IOCallbacks &) = delete;
+    IOCallbacks &operator=(const IOCallbacks &) = delete;
+    IOCallbacks(IOCallbacks &&) = delete;
+    IOCallbacks &operator=(IOCallbacks &&) = delete;
+
+    std::vector<cb_func_t> _cbs;
+  };
+
+  class IOCallbackManager
+  {
+  public:
+    static constexpr int IOV_CACHE_BUF = 4096;
+    IOCallbackManager() {}
+    virtual ~IOCallbackManager() {}
+
+    int Register(int fd)
+    {
+      if (fd <= 0)
+      {
+        assert(false);
+        return -1;
+      }
+
+      while (_cbs.size() < static_cast<size_t>(fd + 1))
+      {
+        _cbs.resize(_cbs.size() + 32, nullptr);
+        _iov_cache.resize(_iov_cache.size() + 32, nullptr);
+        _iov_buf.resize(_iov_buf.size() + 32, nullptr);
+      }
+
+      assert(static_cast<size_t>(fd) < _cbs.capacity());
+      assert(_cbs[fd].get() == nullptr);
+
+      _cbs[fd] = std::make_shared<IOCallbacks>();
+      _iov_cache[fd] = std::make_shared<struct iovec>();
+      _iov_buf[fd] = std::make_shared<char[IOV_CACHE_BUF]>(); // 1k
+
+      _iov_cache[fd]->iov_base = _iov_buf[fd].get();
+      _iov_cache[fd]->iov_len = IOV_CACHE_BUF;
+
+      return 0;
+    }
+
+    // simple write cache for testing
+    std::shared_ptr<struct iovec> &GetWriteCache(int fd)
+    {
+      assert(static_cast<size_t>(fd) < _iov_cache.size());
+      return _iov_cache[fd];
+    }
+
+    int Unregister(int fd)
+    {
+      if (fd <= 0)
+      {
+        assert(false);
+        return -1;
+      }
+
+      if (static_cast<size_t>(fd) < _cbs.size())
+      {
+        _cbs[fd].reset();
+        _iov_cache[fd].reset();
+        _iov_buf[fd].reset();
+      }
+
+      return 0;
+    }
+
+    void SetCallback(int fd, io_uring_op cb, IOCallbacks::cb_func_t &f)
+    {
+      assert(static_cast<size_t>(fd) < _cbs.size());
+      assert(_cbs[fd].get() != nullptr);
+      _cbs[fd]->SetCallback(cb, f);
+    }
+
+    void Fire(int fd, io_uring_op cb, int res, uint64_t user_data, int flags)
+    {
+      assert(static_cast<size_t>(fd) < _cbs.size());
+      assert(_cbs[fd].get() != nullptr);
+      _cbs[fd]->Fire(cb, res, user_data, flags);
+    }
+
+  private:
+    IOCallbackManager(const IOCallbackManager &) = delete;
+    IOCallbackManager &operator=(const IOCallbackManager &) = delete;
+    IOCallbackManager(IOCallbackManager &&) = delete;
+    IOCallbackManager &operator=(IOCallbackManager &&) = delete;
+
+    std::vector<std::shared_ptr<IOCallbacks>> _cbs;
+
+    std::vector<std::shared_ptr<struct iovec>> _iov_cache;
+    std::vector<std::shared_ptr<char[IOV_CACHE_BUF]>> _iov_buf;
+  };
+
 } //  coypu::event
