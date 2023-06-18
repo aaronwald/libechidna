@@ -125,7 +125,11 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  // setup buffers
+  // IO Manager
+  IOCallbackManager iom;
+
+  // BEGIN setup buffers
+  int used_buf_count = 0;
   uint32_t buf_size = 4096;
   uint16_t buf_group_id = 13;
   int num_bufs = 4;
@@ -138,7 +142,6 @@ int main(int argc, char **argv)
   }
 
   r = posix_memalign(&buffers, 4096, buf_size * num_bufs);
-
   if (r != 0)
   {
     perror("posix_memalign");
@@ -160,16 +163,15 @@ int main(int argc, char **argv)
   {
     consoleLogger->info("Provide buffers:{}", num_bufs);
   }
+  // END setup buffers
 
-  IOCallbackManager iom;
+  // TODO Create callback
 
-  int used_buf_count = 0;
   auto process_ring_completions = [&iom, &accept_addr, &ring, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int res, uint64_t userdata, int flags)
   {
     struct IOCallback cb = *(struct IOCallback *)&userdata;
     consoleLogger->debug("Completion fd={}", cb._fd);
 
-    // cache iovec for write
     // onAccept, onRecv, onWritev, onBuffers
     // cbManager->Fire(cb._fd, cb._cb, res, flags);
 
