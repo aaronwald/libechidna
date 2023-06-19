@@ -28,19 +28,6 @@ typedef std::shared_ptr<spdlog::logger> LogType;
 typedef OpenSSLManager<LogType> SSLType;
 
 constexpr int LISTEN_PORT = 9988;
-
-struct IOCallback
-{
-  int _fd;
-  uint8_t _cb;
-  char _pad[3];
-
-  IOCallback(int fd, uint8_t cb) : _fd(fd), _cb(cb)
-  {
-    _pad[0] = _pad[1] = _pad[2] = 0;
-  }
-} __attribute__((__packed__));
-
 constexpr int probe_size = sizeof(io_uring_probe) + (sizeof(io_uring_probe_op) * IORING_OP_LAST);
 
 int main(int argc, char **argv)
@@ -128,26 +115,16 @@ int main(int argc, char **argv)
   }
 
   // IO Manager
-  // TODO - Should this manage the buffers for us?
   IOCallbackManager iom;
   IOBufManager iobuf_mgr(13, 4);
   iobuf_mgr.Init();
 
   struct IOCallback cb_buffers(ring._fd, IORING_OP_PROVIDE_BUFFERS);
-  r = IOURingHelper::SubmitProvideBuffers(ring,
-                                          iobuf_mgr.GetBuffers(),
-                                          iobuf_mgr.GetNumBufs(),
-                                          iobuf_mgr.GetBufSize(),
-                                          iobuf_mgr.GetGroupID(),
-                                          *reinterpret_cast<uint64_t *>(&cb_buffers));
+  r = iobuf_mgr.SubmitBuffers(ring, cb_buffers);
   if (r < 0)
   {
     perror("provide buffers");
     return EXIT_FAILURE;
-  }
-  else
-  {
-    consoleLogger->info("Provide buffers:{}", iobuf_mgr.GetNumBufs());
   }
   // END setup buffers
 
@@ -182,12 +159,7 @@ int main(int argc, char **argv)
           iobuf_mgr.Reset();
 
           struct IOCallback cb_buffers(ring._fd, IORING_OP_PROVIDE_BUFFERS);
-          int r = IOURingHelper::SubmitProvideBuffers(ring,
-                                                      iobuf_mgr.GetBuffers(),
-                                                      iobuf_mgr.GetNumBufs(),
-                                                      iobuf_mgr.GetBufSize(),
-                                                      iobuf_mgr.GetGroupID(),
-                                                      *reinterpret_cast<uint64_t *>(&cb_buffers));
+          int r = iobuf_mgr.SubmitBuffers(ring, cb_buffers);
           if (r < 0)
           {
             perror("SubmitProvideBuffers");

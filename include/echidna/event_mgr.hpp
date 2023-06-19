@@ -370,6 +370,18 @@ namespace coypu::event
     write_cb_type _set_write;
   };
 
+  struct IOCallback
+  {
+    int _fd;
+    uint8_t _cb;
+    char _pad[3];
+
+    IOCallback(int fd, uint8_t cb) : _fd(fd), _cb(cb)
+    {
+      _pad[0] = _pad[1] = _pad[2] = 0;
+    }
+  } __attribute__((__packed__));
+
   class IOCallbacks
   {
   public:
@@ -561,6 +573,16 @@ namespace coypu::event
     bool IsFull() const
     {
       return _used_count == _num_bufs;
+    }
+
+    int SubmitBuffers(coypu_io_uring &ring, struct IOCallback &cb_buffers)
+    {
+      return IOURingHelper::SubmitProvideBuffers(ring,
+                                                 GetBuffers(),
+                                                 GetNumBufs(),
+                                                 GetBufSize(),
+                                                 GetGroupID(),
+                                                 *reinterpret_cast<uint64_t *>(&cb_buffers));
     }
 
   private:
