@@ -119,6 +119,7 @@ int main(int argc, char **argv)
   IOBufManager iobuf_mgr(13, 4);
   iobuf_mgr.Init();
 
+  // Submit buffers
   struct IOCallback cb_buffers(ring._fd, IORING_OP_PROVIDE_BUFFERS);
   r = iobuf_mgr.SubmitBuffers(ring, cb_buffers);
   if (r < 0)
@@ -126,9 +127,8 @@ int main(int argc, char **argv)
     perror("provide buffers");
     return EXIT_FAILURE;
   }
-  // END setup buffers
 
-  // TODO Create callback
+  // Callbacks
   IOCallbacks::cb_func_t onAccept = [&iom, &accept_addr, &ring, ssl_mgr, consoleLogger, &iobuf_mgr](int fd, int res, int flags)
   {
     consoleLogger->info("Accept fd={} res={} {}", fd, res, inet_ntoa(((struct sockaddr_in *)&accept_addr)->sin_addr));
