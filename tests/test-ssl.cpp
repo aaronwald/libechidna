@@ -128,33 +128,17 @@ int main(int argc, char **argv)
   }
 
   // IO Manager
+  // TODO - Should this manage the buffers for us?
   IOCallbackManager iom;
+  IOBufManager iobuf_mgr(13, 4);
+  iobuf_mgr.Init();
 
-  // BEGIN setup buffers
-  int used_buf_count = 0;
-  uint32_t buf_size = 4096;
-  uint16_t buf_group_id = 13;
-  int num_bufs = 4;
-  void *buffers = nullptr;
-  size_t pageSize = MemManager::GetPageSize();
-  if ((buf_size * num_bufs) % pageSize)
-  {
-    printf("Buffer size * num buffers must be a multiple of page size %zu\n", pageSize);
-    return EXIT_FAILURE;
-  }
-
-  r = posix_memalign(&buffers, 4096, buf_size * num_bufs);
-  if (r != 0)
-  {
-    perror("posix_memalign");
-    return EXIT_FAILURE;
-  }
   struct IOCallback cb_buffers(ring._fd, IORING_OP_PROVIDE_BUFFERS);
   r = IOURingHelper::SubmitProvideBuffers(ring,
-                                          buffers,
-                                          num_bufs,
-                                          buf_size,
-                                          buf_group_id,
+                                          iobuf_mgr.GetBuffers(),
+                                          iobuf_mgr.GetNumBufs(),
+                                          iobuf_mgr.GetBufSize(),
+                                          iobuf_mgr.GetGroupID(),
                                           *reinterpret_cast<uint64_t *>(&cb_buffers));
   if (r < 0)
   {
@@ -163,18 +147,18 @@ int main(int argc, char **argv)
   }
   else
   {
-    consoleLogger->info("Provide buffers:{}", num_bufs);
+    consoleLogger->info("Provide buffers:{}", iobuf_mgr.GetNumBufs());
   }
   // END setup buffers
 
   // TODO Create callback
-  IOCallbacks::cb_func_t onAccept = [&iom, &accept_addr, &ring, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int fd, int res, int flags)
+  IOCallbacks::cb_func_t onAccept = [&iom, &accept_addr, &ring, ssl_mgr, consoleLogger, &iobuf_mgr](int fd, int res, int flags)
   {
     consoleLogger->info("Accept fd={} res={} {}", fd, res, inet_ntoa(((struct sockaddr_in *)&accept_addr)->sin_addr));
 
     ssl_mgr->RegisterWithMemBIO(res, "localhost", false /* set to accept state for server*/);
 
-    IOCallbacks::cb_func_t onRecv = [&iom, &accept_addr, &ring, ssl_mgr, consoleLogger, &buffers, num_bufs, buf_group_id, buf_size, &used_buf_count](int fd, int res, int flags)
+    IOCallbacks::cb_func_t onRecv = [&iom, &accept_addr, &ring, ssl_mgr, consoleLogger, &iobuf_mgr](int fd, int res, int flags)
     {
       consoleLogger->debug("Readv res={0}", res);
 
@@ -183,7 +167,7 @@ int main(int argc, char **argv)
         uint16_t buf_id = flags >> IORING_CQE_BUFFER_SHIFT;
         if (flags & IORING_CQE_F_BUFFER)
         {
-          consoleLogger->debug("Group:{0} Buffer:{1}", buf_group_id, buf_id);
+          consoleLogger->debug("Group:{0} Buffer:{1}", iobuf_mgr.GetGroupID(), buf_id);
         }
         else
         {
@@ -191,18 +175,18 @@ int main(int argc, char **argv)
           return;
         }
 
-        ++used_buf_count;
-        if (used_buf_count == num_bufs)
+        iobuf_mgr.IncUsedCount();
+        if (iobuf_mgr.IsFull())
         {
           consoleLogger->info("Used all buffers");
-          used_buf_count = 0;
+          iobuf_mgr.Reset();
 
           struct IOCallback cb_buffers(ring._fd, IORING_OP_PROVIDE_BUFFERS);
           int r = IOURingHelper::SubmitProvideBuffers(ring,
-                                                      buffers,
-                                                      num_bufs,
-                                                      buf_size,
-                                                      buf_group_id,
+                                                      iobuf_mgr.GetBuffers(),
+                                                      iobuf_mgr.GetNumBufs(),
+                                                      iobuf_mgr.GetBufSize(),
+                                                      iobuf_mgr.GetGroupID(),
                                                       *reinterpret_cast<uint64_t *>(&cb_buffers));
           if (r < 0)
           {
@@ -211,14 +195,14 @@ int main(int argc, char **argv)
 
           // start read again
           struct IOCallback cb_recv(fd, IORING_OP_RECV);
-          r = IOURingHelper::SubmitRecvMulti(ring, fd, buf_group_id, *reinterpret_cast<uint64_t *>(&cb_recv));
+          r = IOURingHelper::SubmitRecvMulti(ring, fd, iobuf_mgr.GetGroupID(), *reinterpret_cast<uint64_t *>(&cb_recv));
           if (r < 0)
           {
             consoleLogger->error("SubmitRecvMulti");
           }
         }
 
-        char *offset = reinterpret_cast<char *>(buffers) + (buf_size * buf_id);
+        char *offset = iobuf_mgr.GetBuffers() + (iobuf_mgr.GetBufSize() * buf_id);
         int r = ssl_mgr->PushReadBIO(fd, offset, res);
 
         if (!ssl_mgr->IsInitFinished(fd))
@@ -273,7 +257,7 @@ int main(int argc, char **argv)
         if (!(flags & IORING_CQE_F_MORE))
         {
           struct IOCallback cb_recv(fd, IORING_RECV_MULTISHOT);
-          int r = IOURingHelper::SubmitRecvMulti(ring, fd, buf_group_id, *reinterpret_cast<uint64_t *>(&cb_recv));
+          int r = IOURingHelper::SubmitRecvMulti(ring, fd, iobuf_mgr.GetGroupID(), *reinterpret_cast<uint64_t *>(&cb_recv));
           if (r < 0)
           {
             consoleLogger->error("Failed to submit recv");
@@ -321,7 +305,7 @@ int main(int argc, char **argv)
     iom.Register(res);
     iom.SetCallback(res, IORING_OP_RECV, onRecv);
     iom.SetCallback(res, IORING_OP_WRITEV, onWritev);
-    int r = IOURingHelper::SubmitRecvMulti(ring, res, buf_group_id, *reinterpret_cast<uint64_t *>(&cb_recv));
+    int r = IOURingHelper::SubmitRecvMulti(ring, res, iobuf_mgr.GetGroupID(), *reinterpret_cast<uint64_t *>(&cb_recv));
     if (r < 0)
     {
       consoleLogger->error("Failed to submit recv");
@@ -333,15 +317,18 @@ int main(int argc, char **argv)
     consoleLogger->debug("Buffers provided");
   };
 
-  iom.Register(ring._fd);
+  // accept on the socket
   iom.Register(sockFD);
   iom.SetCallback(sockFD, IORING_OP_ACCEPT, onAccept);
+
+  // buffers are on the ring
+  iom.Register(ring._fd);
   iom.SetCallback(ring._fd, IORING_OP_PROVIDE_BUFFERS, onBuffers);
 
   auto process_ring_completions = [consoleLogger, &iom](int res, uint64_t userdata, int flags)
   {
     struct IOCallback cb = *(struct IOCallback *)&userdata;
-    consoleLogger->debug("Completion fd={} res={}", cb._fd, res);
+    consoleLogger->debug("Completion fd={} res={} flags={}", cb._fd, res, flags);
     iom.Fire(cb._fd, static_cast<io_uring_op>(cb._cb), res, flags);
   };
 

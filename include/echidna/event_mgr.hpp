@@ -13,6 +13,7 @@
 #include <sys/epoll.h>
 
 #include "event_hlpr.hpp"
+#include "mem.hpp"
 
 namespace coypu::event
 {
@@ -488,6 +489,91 @@ namespace coypu::event
 
     std::vector<std::shared_ptr<struct iovec>> _iov_cache;
     std::vector<std::shared_ptr<char>> _iov_buf;
+  };
+
+  class IOBufManager
+  {
+  public:
+    IOBufManager(uint16_t group_id,
+                 int num_bufs,
+                 uint32_t buf_size = 4096) : _used_count(0), _buf_size(buf_size), _group_id(group_id), _num_bufs(num_bufs), _buffers(nullptr)
+    {
+    }
+
+    virtual ~IOBufManager()
+    {
+    }
+
+    int Init()
+    {
+      size_t pageSize = coypu::mem::MemManager::GetPageSize();
+      if ((_buf_size * _num_bufs) % pageSize)
+      {
+        printf("Buffer size * num buffers must be a multiple of page size %zu\n", pageSize);
+        return -1;
+      }
+
+      int r = posix_memalign(&_buffers, 4096, _buf_size * _num_bufs);
+      if (r != 0)
+      {
+        perror("posix_memalign");
+        return -2;
+      }
+
+      return 0;
+    }
+
+    inline uint16_t GetGroupID() const
+    {
+      return _group_id;
+    }
+
+    inline int GetNumBufs() const
+    {
+      return _num_bufs;
+    }
+
+    inline uint32_t GetBufSize() const
+    {
+      return _buf_size;
+    }
+
+    inline char *GetBuffers() const
+    {
+      return reinterpret_cast<char *>(_buffers);
+    }
+
+    int GetUsedCount() const
+    {
+      return _used_count;
+    }
+
+    void IncUsedCount()
+    {
+      _used_count++;
+    }
+
+    void Reset()
+    {
+      _used_count = 0;
+    }
+
+    bool IsFull() const
+    {
+      return _used_count == _num_bufs;
+    }
+
+  private:
+    IOBufManager(const IOBufManager &) = delete;
+    IOBufManager &operator=(const IOBufManager &) = delete;
+    IOBufManager(IOBufManager &&) = delete;
+    IOBufManager &operator=(IOBufManager &&) = delete;
+
+    int _used_count;
+    uint32_t _buf_size;
+    uint16_t _group_id;
+    int _num_bufs;
+    void *_buffers;
   };
 
 } //  coypu::event
