@@ -273,6 +273,18 @@ namespace coypu::event
     static int AddToSQE(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
     {
       unsigned index = 0, tail = 0, next_tail = 0;
+      if (ring._fd <= 0)
+      {
+        return -1;
+      }
+      if (ring._sqes == nullptr)
+      {
+        return -2;
+      }
+      if (ring._sq_ring.tail == nullptr)
+      {
+        return -3;
+      }
 
       /* Add our submission queue entry to the tail of the SQE ring buffer */
       next_tail = tail = *ring._sq_ring.tail;
