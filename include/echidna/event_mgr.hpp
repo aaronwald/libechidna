@@ -299,6 +299,7 @@ namespace coypu::event
     int Read(int fd [[maybe_unused]])
     {
       uint64_t u = UINT64_MAX;
+      // ignore the value
       int r = ::read(_fd, &u, sizeof(uint64_t));
       if (r > 0)
       {
@@ -323,6 +324,31 @@ namespace coypu::event
         return 0;
       }
       return r;
+    }
+
+    // With io uring the read is already accomplished in the buffer
+    int ReadIO(int fd [[maybe_unused]], int res [[maybe_unused]], int flags [[maybe_unused]])
+    {
+      uint64_t u = UINT64_MAX;
+
+      if (res == sizeof(uint64_t))
+      {
+        while (!_queue.empty())
+        {
+          u = _queue.front(); // not thread safe
+          _queue.pop_front();
+          auto b = _cbMap.find(u);
+          if (b != _cbMap.end())
+          {
+            (*b).second();
+          }
+          else
+          {
+            assert(false);
+          }
+        }
+        return 0;
+      }
     }
 
     int Write(int fd [[maybe_unused]])
