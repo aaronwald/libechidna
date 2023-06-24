@@ -382,10 +382,10 @@ namespace coypu::event
       return -1;
     }
 
-    int QueueSend(coypu_io_uring &ring, uint64_t u)
+    int QueueSend(coypu_io_uring &ring, uint64_t *u)
     {
-      _queue.push_back(u);
-      u = _queue.size();
+      _queue.push_back(*u);
+      *u = _queue.size();
       struct IOCallback cb_recv(_fd, IORING_OP_WRITE);
 
       return IOURingHelper::SubmitWrite(ring,
