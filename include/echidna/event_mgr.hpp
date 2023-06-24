@@ -371,6 +371,17 @@ namespace coypu::event
       return -1;
     }
 
+    int QueueSend(coypu_io_uring &ring, uint64_t u, uint64_t userdata)
+    {
+      _queue.push_back(u);
+      u = _queue.size();
+      return IOURingHelper::SubmitSend(ring,
+                                       _fd,
+                                       reinterpret_cast<char *>(u),
+                                       sizeof(uint64_t),
+                                       userdata);
+    }
+
     int Close(int fd [[maybe_unused]])
     {
       // nop ?? error
