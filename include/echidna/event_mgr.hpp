@@ -349,6 +349,8 @@ namespace coypu::event
         }
         return 0;
       }
+
+      return -1;
     }
 
     int Write(int fd [[maybe_unused]])
