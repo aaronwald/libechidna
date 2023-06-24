@@ -17,6 +17,17 @@
 
 namespace coypu::event
 {
+  struct IOCallback
+  {
+    int _fd;
+    uint8_t _cb;
+    char _pad[3];
+
+    IOCallback(int fd, uint8_t cb) : _fd(fd), _cb(cb)
+    {
+      _pad[0] = _pad[1] = _pad[2] = 0;
+    }
+  } __attribute__((__packed__));
   typedef std::function<int(int)> callback_type;
   template <typename LogTrait>
   class EventManager
@@ -410,18 +421,6 @@ namespace coypu::event
     int _fd;
     write_cb_type _set_write;
   };
-
-  struct IOCallback
-  {
-    int _fd;
-    uint8_t _cb;
-    char _pad[3];
-
-    IOCallback(int fd, uint8_t cb) : _fd(fd), _cb(cb)
-    {
-      _pad[0] = _pad[1] = _pad[2] = 0;
-    }
-  } __attribute__((__packed__));
 
   class IOCallbacks
   {
