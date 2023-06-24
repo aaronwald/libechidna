@@ -371,15 +371,17 @@ namespace coypu::event
       return -1;
     }
 
-    int QueueSend(coypu_io_uring &ring, uint64_t u, uint64_t userdata)
+    int QueueSend(coypu_io_uring &ring, uint64_t u)
     {
       _queue.push_back(u);
       u = _queue.size();
+      struct IOCallback cb_recv(_fd, IORING_OP_SEND);
+
       return IOURingHelper::SubmitSend(ring,
                                        _fd,
                                        reinterpret_cast<char *>(u),
                                        sizeof(uint64_t),
-                                       userdata);
+                                       *reinterpret_cast<uint64_t *>(&cb_recv));
     }
 
     int Close(int fd [[maybe_unused]])
