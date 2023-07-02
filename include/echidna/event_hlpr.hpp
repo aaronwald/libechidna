@@ -153,12 +153,36 @@ namespace coypu::event
       return AddToSQE(ring, &sqe);
     }
 
+    static inline int SubmitWrite(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
+    {
+      struct io_uring_sqe sqe;
+      ::memset(&sqe, 0, sizeof(sqe));
+      sqe.fd = file_fd;
+      sqe.opcode = IORING_OP_WRITE; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+      sqe.addr = (unsigned long long)buf;
+      sqe.len = len;
+      sqe.user_data = (unsigned long long)userdata; // user data
+      return AddToSQE(ring, &sqe);
+    }
+
     static inline int SubmitRecv(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
     {
       struct io_uring_sqe sqe;
       ::memset(&sqe, 0, sizeof(sqe));
       sqe.fd = file_fd;
       sqe.opcode = IORING_OP_RECV; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
+      sqe.addr = (unsigned long long)buf;
+      sqe.len = len;
+      sqe.user_data = (unsigned long long)userdata; // user data
+      return AddToSQE(ring, &sqe);
+    }
+
+    static inline int SubmitRead(coypu_io_uring &ring, int file_fd, char *buf, uint32_t len, uint64_t userdata)
+    {
+      struct io_uring_sqe sqe;
+      ::memset(&sqe, 0, sizeof(sqe));
+      sqe.fd = file_fd;
+      sqe.opcode = IORING_OP_READ; // https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html
       sqe.addr = (unsigned long long)buf;
       sqe.len = len;
       sqe.user_data = (unsigned long long)userdata; // user data
@@ -273,6 +297,18 @@ namespace coypu::event
     static int AddToSQE(coypu_io_uring &ring, struct io_uring_sqe *in_sqe)
     {
       unsigned index = 0, tail = 0, next_tail = 0;
+      if (ring._fd <= 0)
+      {
+        return -1;
+      }
+      if (ring._sqes == nullptr)
+      {
+        return -2;
+      }
+      if (ring._sq_ring.tail == nullptr)
+      {
+        return -3;
+      }
 
       /* Add our submission queue entry to the tail of the SQE ring buffer */
       next_tail = tail = *ring._sq_ring.tail;

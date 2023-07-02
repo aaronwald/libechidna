@@ -605,7 +605,7 @@ namespace coypu::http::websocket
         }
         else
         {
-          _logger->error("Unsupported opcode [{0}]", con->_frame._opcode);
+          _logger->error("Unsupported opcode [{}]", (int)con->_frame._opcode);
         }
       }
       else
