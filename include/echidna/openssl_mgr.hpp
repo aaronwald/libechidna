@@ -110,7 +110,10 @@ namespace coypu::net::ssl
 			SSL_library_init(); // always returns 1
 			OpenSSL_add_all_algorithms();
 			SSL_load_error_strings();
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 			ERR_load_SSL_strings();
+#endif
+
 			ERR_load_crypto_strings();
 		}
 

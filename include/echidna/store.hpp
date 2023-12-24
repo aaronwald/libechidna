@@ -632,16 +632,21 @@ namespace coypu::store
     // https://gist.github.com/jeetsukumaran/307264
     // https://stackoverflow.com/questions/12092448/code-for-a-basic-random-access-iterator-based-on-pointers
     template <typename LogType>
-    class store_iterator : public std::iterator<std::random_access_iterator_tag, char>
+    class store_iterator //: public std::iterator<std::random_access_iterator_tag, char>
     {
     public:
       typedef store_iterator<LogType> iterator_type;
-      typedef typename LogType::value_type value_type;
-      typedef typename LogType::value_type &reference;
-      typedef typename LogType::value_type *pointer;
+      // typedef typename LogType::value_type value_type;
+      // typedef typename LogType::value_type &reference;
+      // typedef typename LogType::value_type *pointer;
       // typedef int difference_type;
 
-      using difference_type = typename std::iterator<std::random_access_iterator_tag, char>::difference_type;
+      // using difference_type = typename std::iterator<std::random_access_iterator_tag, char>::difference_type;
+      using iterator_category = std::forward_iterator_tag;
+      using value_type = char;
+      using difference_type = char;
+      using pointer = char*;
+      using reference = char&;
 
       store_iterator(LogType *log, offset_type offset) : _log(log), _offset(offset)
       {

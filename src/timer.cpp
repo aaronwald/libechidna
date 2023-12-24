@@ -1,10 +1,13 @@
 #include <vector>
+#if defined(__x86_64__)
 #include <x86intrin.h>
+#endif
 #include <stdint.h>
 #include "echidna/timer.hpp"
 
 using namespace std;
 
+#if defined(__x86_64__)
 __attribute__((noinline)) int task(int iterations)
 {
   volatile int i = 0;
@@ -48,3 +51,4 @@ void experiment(int task_size, int task_count, long long result __attribute__((u
     cycle_counter[i] = (t2 - t1);
   }
 }
+#endif

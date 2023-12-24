@@ -523,21 +523,21 @@ namespace coypu::http::websocket
 
     static bool ComputeKey(const std::string &in, std::string &out)
     {
-      // #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-      //       size_t mdlen = 0;
-      //       unsigned char sha1[EVP_MAX_MD_SIZE];
-      //       if (!EVP_Q_digest(nullptr, "SHA1", nullptr, in.c_str(), in.size(), sha1, &mdlen))
-      //         return false;
-      // #else
-      SHA_CTX ctx;
-      if (!SHA1_Init(&ctx))
-        return false;
-      if (!SHA1_Update(&ctx, in.c_str(), in.size()))
-        return false;
-      unsigned char sha1[SHA_DIGEST_LENGTH] = {};
-      if (!SHA1_Final(sha1, &ctx))
-        return false;
-      // #endif
+      #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        size_t mdlen = 0;
+        unsigned char sha1[EVP_MAX_MD_SIZE];
+        if (!EVP_Q_digest(nullptr, "SHA1", nullptr, in.c_str(), in.size(), sha1, &mdlen))
+          return false;
+      #else
+        SHA_CTX ctx;
+        if (!SHA1_Init(&ctx))
+          return false;
+        if (!SHA1_Update(&ctx, in.c_str(), in.size()))
+          return false;
+        unsigned char sha1[SHA_DIGEST_LENGTH] = {};
+        if (!SHA1_Final(sha1, &ctx))
+          return false;
+       #endif
 
       constexpr int sfsize = 1 + (((SHA_DIGEST_LENGTH / 3) + 1) * 4);
       unsigned char base64[sfsize] = {};
