@@ -782,7 +782,7 @@ namespace coypu::http::websocket
             ++checkHeaderCount;
 	  }
           if (con->HasHeader(HEADER_UPGRADE) ||
-	      con->HasHeader(HEADER_UPGRADE_LOWER) {
+	      con->HasHeader(HEADER_UPGRADE_LOWER)) {
             ++checkHeaderCount;
 	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_UPGRADE);
 	  }
@@ -791,7 +791,7 @@ namespace coypu::http::websocket
 	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_CONNECTION);
 	  }
           if (con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT) ||
-	      con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER) {
+	      con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER)) {
 	    ++checkHeaderCount;
 	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_SEC_WEBSOCKET_ACCEPT);
 	  }
