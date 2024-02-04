@@ -75,8 +75,10 @@ namespace coypu::http::websocket
   static constexpr const char *HEADER_SEC_WEBSOCKET_PROTOCOL = "Sec-WebSocket-Protocol";
   static constexpr const char *HEADER_SEC_WEBSOCKET_KEY = "Sec-WebSocket-Key";
   static constexpr const char *HEADER_SEC_WEBSOCKET_ACCEPT = "Sec-WebSocket-Accept";
+  static constexpr const char *HEADER_SEC_WEBSOCKET_ACCEPT_LOWER = "sec-websocket-accept";
   static constexpr const char *HEADER_SEC_WEBSOCKET_VERSION = "Sec-WebSocket-Version";
   static constexpr const char *HEADER_UPGRADE = "Upgrade";
+  static constexpr const char *HEADER_UPGRADE_LOWER = "upgrade";
   static constexpr const char *HEADER_CONNECTION = "Connection";
   static constexpr const char *HEADER_HOST = "Host";
   static constexpr const char *HEADER_ORIGIN = "Origin";
@@ -779,7 +781,8 @@ namespace coypu::http::websocket
 	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_SERVERS);
             ++checkHeaderCount;
 	  }
-          if (con->HasHeader(HEADER_UPGRADE)) {
+          if (con->HasHeader(HEADER_UPGRADE) ||
+	      con->HasHeader(HEADER_UPGRADE_LOWER) {
             ++checkHeaderCount;
 	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_UPGRADE);
 	  }
@@ -787,7 +790,8 @@ namespace coypu::http::websocket
 	    ++checkHeaderCount;
 	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_CONNECTION);
 	  }
-          if (con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT)) {
+          if (con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT) ||
+	      con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER) {
 	    ++checkHeaderCount;
 	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_SEC_WEBSOCKET_ACCEPT);
 	  }
