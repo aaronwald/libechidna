@@ -775,15 +775,24 @@ namespace coypu::http::websocket
         {
           int checkHeaderCount = 0;
 
-          if (con->HasHeader(HEADER_SERVERS))
+          if (con->HasHeader(HEADER_SERVERS)) {
+	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_SERVERS);
             ++checkHeaderCount;
-          if (con->HasHeader(HEADER_UPGRADE))
+	  }
+          if (con->HasHeader(HEADER_UPGRADE)) {
             ++checkHeaderCount;
-          if (con->HasHeader(HEADER_CONNECTION))
-            ++checkHeaderCount;
-          if (con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT))
-            ++checkHeaderCount;
-          _logger->debug("fd[{1}] Client check count {0}", checkHeaderCount, con->_fd);
+	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_UPGRADE);
+	  }
+	  if (con->HasHeader(HEADER_CONNECTION)) {
+	    ++checkHeaderCount;
+	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_CONNECTION);
+	  }
+          if (con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT)) {
+	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_SEC_WEBSOCKET_ACCEPT);
+	    ++checkHeaderCount;
+	  }
+
+          _logger->debug("fd[{1}] Client check count {0} expecting 4", checkHeaderCount, con->_fd);
           if (checkHeaderCount == 4)
           {
             if (con->_responsecode == "101" && con->_version == "HTTP/1.1")
