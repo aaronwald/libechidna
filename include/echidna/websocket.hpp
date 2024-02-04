@@ -525,21 +525,21 @@ namespace coypu::http::websocket
 
     static bool ComputeKey(const std::string &in, std::string &out)
     {
-      #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-        size_t mdlen = 0;
-        unsigned char sha1[EVP_MAX_MD_SIZE];
-        if (!EVP_Q_digest(nullptr, "SHA1", nullptr, in.c_str(), in.size(), sha1, &mdlen))
-          return false;
-      #else
-        SHA_CTX ctx;
-        if (!SHA1_Init(&ctx))
-          return false;
-        if (!SHA1_Update(&ctx, in.c_str(), in.size()))
-          return false;
-        unsigned char sha1[SHA_DIGEST_LENGTH] = {};
-        if (!SHA1_Final(sha1, &ctx))
-          return false;
-       #endif
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+      size_t mdlen = 0;
+      unsigned char sha1[EVP_MAX_MD_SIZE];
+      if (!EVP_Q_digest(nullptr, "SHA1", nullptr, in.c_str(), in.size(), sha1, &mdlen))
+        return false;
+#else
+      SHA_CTX ctx;
+      if (!SHA1_Init(&ctx))
+        return false;
+      if (!SHA1_Update(&ctx, in.c_str(), in.size()))
+        return false;
+      unsigned char sha1[SHA_DIGEST_LENGTH] = {};
+      if (!SHA1_Final(sha1, &ctx))
+        return false;
+#endif
 
       constexpr int sfsize = 1 + (((SHA_DIGEST_LENGTH / 3) + 1) * 4);
       unsigned char base64[sfsize] = {};
@@ -777,24 +777,24 @@ namespace coypu::http::websocket
         {
           int checkHeaderCount = 0;
 
-          if (con->HasHeader(HEADER_SERVERS)) {
-	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_SERVERS);
+          if (con->HasHeader(HEADER_SERVERS))
+          {
             ++checkHeaderCount;
-	  }
+          }
           if (con->HasHeader(HEADER_UPGRADE) ||
-	      con->HasHeader(HEADER_UPGRADE_LOWER)) {
+              con->HasHeader(HEADER_UPGRADE_LOWER))
+          {
             ++checkHeaderCount;
-	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_UPGRADE);
-	  }
-	  if (con->HasHeader(HEADER_CONNECTION)) {
-	    ++checkHeaderCount;
-	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_CONNECTION);
-	  }
+          }
+          if (con->HasHeader(HEADER_CONNECTION))
+          {
+            ++checkHeaderCount;
+          }
           if (con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT) ||
-	      con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER)) {
-	    ++checkHeaderCount;
-	    _logger->debug("fd[{0}] Has Header {1}", con->_fd, HEADER_SEC_WEBSOCKET_ACCEPT);
-	  }
+              con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER))
+          {
+            ++checkHeaderCount;
+          }
 
           _logger->debug("fd[{1}] Client check count {0} expecting 4", checkHeaderCount, con->_fd);
           if (checkHeaderCount == 4)
@@ -805,7 +805,11 @@ namespace coypu::http::websocket
               if (!con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT, wskey))
               {
                 _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT);
-                return false;
+                if (!con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER, wskey))
+                {
+                  _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT_LOWER);
+                  return false;
+                }
               }
 
               std::string key = std::string(reinterpret_cast<char *>(con->_key)) + std::string(WEBSOCKET_GUID);
