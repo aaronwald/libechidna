@@ -776,19 +776,19 @@ namespace coypu::http::websocket
           int checkHeaderCount = 0;
 
           if (con->HasHeader(HEADER_SERVERS)) {
-	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_SERVERS);
+	    _logger->debug("fd[{1}] Has Header {2}", con->_fd, HEADER_SERVERS);
             ++checkHeaderCount;
 	  }
           if (con->HasHeader(HEADER_UPGRADE)) {
             ++checkHeaderCount;
-	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_UPGRADE);
+	    _logger->debug("fd[{1}] Has Header {2}", con->_fd, HEADER_UPGRADE);
 	  }
 	  if (con->HasHeader(HEADER_CONNECTION)) {
 	    ++checkHeaderCount;
-	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_CONNECTION);
+	    _logger->debug("fd[{1}] Has Header {2}", con->_fd, HEADER_CONNECTION);
 	  }
           if (con->HasHeader(HEADER_SEC_WEBSOCKET_ACCEPT)) {
-	    _logger->debug("fd[{1}] Client check count %s", con->_fd, HEADER_SEC_WEBSOCKET_ACCEPT);
+	    _logger->debug("fd[{1}] Has Header {2}", con->_fd, HEADER_SEC_WEBSOCKET_ACCEPT);
 	    ++checkHeaderCount;
 	  }
 
