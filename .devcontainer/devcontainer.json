@@ -5,6 +5,9 @@
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
+	"settings": {
+		"terminal.integrated.shell.linux": "/bin/bash"
+	},
 	"features": {
 		"ghcr.io/devcontainers-contrib/features/ninja-asdf:2": {},
 		"ghcr.io/msclock/features/vcpkg:1": {}
