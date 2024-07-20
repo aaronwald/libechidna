@@ -93,10 +93,10 @@ namespace coypu::http::websocket
   static constexpr const char *HEADER_SERVER_CONNECTION = "Connection: Upgrade\r\n";
   static constexpr const size_t HEADER_SERVER_CONNECTION_LEN = 21;
 
-  static constexpr const char WS_FIN = 0x80;
-  static constexpr const char WS_OP = 0x0F;
-  static constexpr const char WS_MASK = 0x80;
-  static constexpr const char WS_PAYLOAD_LEN = 0x7F;
+  static constexpr const uint8_t WS_FIN = 0x80;
+  static constexpr const uint8_t WS_OP = 0x0F;
+  static constexpr const uint8_t WS_MASK = 0x80;
+  static constexpr const uint8_t WS_PAYLOAD_LEN = 0x7F;
 
   enum WSOPCode
   {
