@@ -10,7 +10,7 @@
 	},
 	"features": {
 		"ghcr.io/devcontainers-contrib/features/ninja-asdf:2": {},
-		"ghcr.io/msclock/features/vcpkg:1": {}
+		"ghcr.io/msclock/features/vcpkg:2": {}
 	}
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
