@@ -16,6 +16,10 @@
 #include "mem.hpp"
 #include "log.hpp"
 
+#ifndef ECHIDNA_LOG_DEBUG
+static_assert(false, "ECHIDNA_LOG_DEBUG not defined");
+#endif
+
 namespace coypu::event
 {
   struct IOCallback
