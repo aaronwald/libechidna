@@ -153,7 +153,7 @@ namespace coypu::event
         {
           if (_logger)
           {
-            ECHIDNA_LOG_WARN(_logger, "Hit epoll _maxEvents [{0}].", _maxEvents);
+            ECHIDNA_LOG_WARNING(_logger, "Hit epoll _maxEvents [{0}].", _maxEvents);
           }
         }
         for (int i = 0; i < count; ++i)
