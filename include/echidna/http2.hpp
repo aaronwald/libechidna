@@ -434,18 +434,18 @@ namespace coypu::http2
 
         if (inflate_flags & NGHTTP2_HD_INFLATE_EMIT)
         {
-          ECHIDNA_LOG_DEBUG(_logger, "{0} = {1}", *nv.name, *nv.value);
+          ECHIDNA_LOG_DEBUG(_logger, "{0} = {1}", std::string(nv.name, nv.namelen), std::string(nv.value, nv.valuelen));
 
           if (::strncmp(reinterpret_cast<char *>(nv.name), ":path", std::min(nv.namelen, 5ul)) == 0)
           {
             if (::strncmp(reinterpret_cast<char *>(nv.value), _path.c_str(), std::min(nv.valuelen, _path.length())) == 0)
             {
-              ECHIDNA_LOG_INFO(_logger, "Path {0}", *nv.value);
+              ECHIDNA_LOG_INFO(_logger, "Path {0}", std::string(nv.value, nv.valuelen));
               con->_lastPathMatch = true;
             }
             else
             {
-              ECHIDNA_LOG_ERROR(_logger, "Path mismatch {0}", *nv.value);
+              ECHIDNA_LOG_ERROR(_logger, "Path mismatch {0}", std::string(nv.value, nv.valuelen));
               con->_lastPathMatch = false;
             }
           }
