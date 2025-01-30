@@ -1035,7 +1035,7 @@ namespace coypu::store
       if (size <= _curOffset)
       {
 
-        typename S::offset_type c = _curOffset;
+        // typename S::offset_type c = _curOffset;
         _curOffset -= size;
         // TODO Check
 
