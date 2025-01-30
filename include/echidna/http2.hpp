@@ -40,6 +40,7 @@
 #include <memory>
 #include "echidna/buf.hpp"
 #include "echidna/streams.hpp"
+#include "log.hpp"
 
 // #include "proto/coincache.pb.h"
 
@@ -202,7 +203,7 @@ namespace coypu::http2
       int rv = nghttp2_hd_inflate_new(&_inflater);
       if (rv != 0)
       {
-        _logger->error("nghttp2_hd_inflate_init failed with error: {0}", nghttp2_strerror(rv));
+        ECHIDNA_LOG_ERROR(_logger, "nghttp2_hd_inflate_init failed with error: {}", nghttp2_strerror(rv));
         assert(false);
       }
     }
@@ -261,7 +262,7 @@ namespace coypu::http2
 
         if (con->_server)
         {
-          _logger->debug("Write fd[{0}] bytes[{1}]", fd, ret);
+          ECHIDNA_LOG_DEBUG(_logger, "Write fd[{0}] bytes[{1}]", fd, ret);
         }
 
         if (ret < 0)
@@ -279,7 +280,7 @@ namespace coypu::http2
 
         if (ret < 0)
         {
-          _logger->error("Publish error fd[{0}] err[{1}]", fd, ret);
+          ECHIDNA_LOG_ERROR(_logger, "Publish error fd[{0}] err[{1}]", fd, ret);
           return ret; // error
         }
         return con->_publish->IsEmpty(fd) ? 0 : 1;
@@ -310,7 +311,7 @@ namespace coypu::http2
 
       if (con->_server)
       {
-        _logger->debug("Read fd[{0}] bytes[{1}] State[{2}]", fd, r, con->_state);
+        ECHIDNA_LOG_DEBUG(_logger, "Read fd[{0}] bytes[{1}] State[{2}]", fd, r, con->_state);
       }
 
       if (r < 0)
@@ -422,7 +423,7 @@ namespace coypu::http2
 
         if (rv < 0)
         {
-          _logger->error("inflate failed with error code {0}", rv);
+          ECHIDNA_LOG_ERROR(_logger, "inflate failed with error code {0}", rv);
           return -1;
         }
 
@@ -433,18 +434,18 @@ namespace coypu::http2
 
         if (inflate_flags & NGHTTP2_HD_INFLATE_EMIT)
         {
-          _logger->debug("{0} = {1}", nv.name, nv.value);
+          ECHIDNA_LOG_DEBUG(_logger, "{0} = {1}", nv.name, nv.value);
 
           if (::strncmp(reinterpret_cast<char *>(nv.name), ":path", std::min(nv.namelen, 5ul)) == 0)
           {
             if (::strncmp(reinterpret_cast<char *>(nv.value), _path.c_str(), std::min(nv.valuelen, _path.length())) == 0)
             {
-              _logger->info("Path {0}", nv.value);
+              ECHIDNA_LOG_INFO(_logger, "Path {0}", nv.value);
               con->_lastPathMatch = true;
             }
             else
             {
-              _logger->error("Path mismatch {0}", nv.value);
+              ECHIDNA_LOG_ERROR(_logger, "Path mismatch {0}", nv.value);
               con->_lastPathMatch = false;
             }
           }
@@ -484,7 +485,7 @@ namespace coypu::http2
           con->_hdr.id &= ~(1UL << 31); // ignore this bit when receiving
           // con->_hdr.id &= 0x7FFFFFFF; // ignore this bit when receiving
 
-          _logger->debug("Frame Type[{0}] Flags [{1}] Id[{2}]", (int)con->_hdr.type, (int)con->_hdr.flags, con->_hdr.id);
+          ECHIDNA_LOG_DEBUG(_logger, "Frame Type[{0}] Flags [{1}] Id[{2}]", (int)con->_hdr.type, (int)con->_hdr.flags, con->_hdr.id);
         }
         else
         {
@@ -567,7 +568,7 @@ namespace coypu::http2
             }
             else
             {
-              _logger->error("Path mismatch. Skipping proto.");
+              ECHIDNA_LOG_ERROR(_logger, "Path mismatch. Skipping proto.");
               bool b = con->_stream->Skip(grpcLen);
               assert(b);
               nghttp2_nv nva2[] = {MAKE_NV(":status", "404")};
@@ -591,7 +592,7 @@ namespace coypu::http2
             char foo[1024] = {};
             con->_stream->Pop(foo, std::min(1024u, len - 8));
 
-            _logger->info("Go away fd[{0}] errorCode[{1}] Msg[{2}]", con->_fd, errorCode, foo);
+            ECHIDNA_LOG_INFO(_logger, "Go away fd[{0}] errorCode[{1}] Msg[{2}]", con->_fd, errorCode, foo);
           }
           else if (con->_hdr.type == H2_FT_WINDOW_UPDATE)
           {
@@ -603,7 +604,7 @@ namespace coypu::http2
             windowUpdate = ntohl(windowUpdate);
             con->_windowSize = windowUpdate;
             // TODO Should change the capacity
-            _logger->debug("WindowUpdate fd[{0}] size[{1}]", con->_fd, con->_windowSize);
+            ECHIDNA_LOG_DEBUG(_logger, "WindowUpdate fd[{0}] size[{1}]", con->_fd, con->_windowSize);
           }
           else if (con->_hdr.type == H2_FT_SETTINGS)
           {
@@ -628,7 +629,7 @@ namespace coypu::http2
                 assert(b);
                 identifier = ntohs(identifier);
                 value = ntohl(value);
-                _logger->debug("Setting fd[{0}] id[{1}] value [{2}]", con->_fd, identifier, value);
+                ECHIDNA_LOG_DEBUG(_logger, "Setting fd[{0}] id[{1}] value [{2}]", con->_fd, identifier, value);
               }
 
               H2Header empty(H2_FT_SETTINGS);
@@ -669,12 +670,12 @@ namespace coypu::http2
         {
           if (priHdr[i] != HTTP2_HDR[i])
           {
-            _logger->error("Pri Failed fd[{0}] {1}", con->_fd, i);
+            ECHIDNA_LOG_ERROR(_logger, "Pri Failed fd[{0}] {1}", con->_fd, i);
             return -2;
           }
         }
 
-        _logger->info("Pri Received fd[{0}]", con->_fd);
+        ECHIDNA_LOG_INFO(_logger, "Pri Received fd[{0}]", con->_fd);
         con->_state = H2_CS_READ_FRAME_HEADER;
 
         // switch to streambuf
@@ -741,7 +742,7 @@ namespace coypu::http2
       int rv = nghttp2_hd_deflate_hd(deflater, buf, buflen, nva, nvlen);
       if (rv < 0)
       {
-        _logger->error("nghttp2_hd_deflate_hd failed with error: {0}", nghttp2_strerror(rv));
+        ECHIDNA_LOG_ERROR(_logger, "nghttp2_hd_deflate_hd failed with error: {0}", nghttp2_strerror(rv));
         return false;
       }
       size_t outlen = (size_t)rv;
