@@ -518,6 +518,8 @@ namespace coypu::http2
           }
           else if (con->_hdr.type == H2_FT_DATA)
           {
+            ECHIDNA_LOG_DEBUG(_logger, "Data fd[{0}]", con->_fd);
+
             // data
             char data[16] = {};
             con->_stream->Pop(data, 5);
@@ -608,6 +610,8 @@ namespace coypu::http2
           }
           else if (con->_hdr.type == H2_FT_SETTINGS)
           {
+            ECHIDNA_LOG_DEBUG(_logger, "Settings fd[{0}]", con->_fd);
+
             if (con->_frameCount == 1)
             {
               // send empty settings always
@@ -639,6 +643,8 @@ namespace coypu::http2
           }
           else
           {
+            ECHIDNA_LOG_WARNING(_logger, "Unhandled Frame fd[{0}]", con->_fd);
+
             con->_stream->Skip(len);
           }
 
