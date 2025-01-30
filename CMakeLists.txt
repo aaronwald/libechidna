@@ -10,7 +10,9 @@ endif()
 
 include(FetchContent)
 
-find_package(nghttp2 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NGHTTP2 REQUIRED IMPORTED_TARGET libnghttp2)
+
 
 # BEGIN echidna
 add_subdirectory(src)
