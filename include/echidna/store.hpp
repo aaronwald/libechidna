@@ -645,8 +645,8 @@ namespace coypu::store
       using iterator_category = std::forward_iterator_tag;
       using value_type = char;
       using difference_type = char;
-      using pointer = char*;
-      using reference = char&;
+      using pointer = char *;
+      using reference = char &;
 
       store_iterator(LogType *log, offset_type offset) : _log(log), _offset(offset)
       {
@@ -1071,9 +1071,9 @@ namespace coypu::store
       if (b)
       {
         // TODO Review. This seems correct, we only have this much data in the stream
-        if (*len > max_avail)
+        if (*len > static_cast<int>(max_avail))
         {
-          *len = max_avail;
+          *len = static_cast<int>(max_avail);
         }
         _curOffset += *len;
       }

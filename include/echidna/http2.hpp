@@ -311,7 +311,7 @@ namespace coypu::http2
 
       if (con->_server)
       {
-        ECHIDNA_LOG_DEBUG(_logger, "Read fd[{0}] bytes[{1}] State[{2}]", fd, r, con->_state);
+        ECHIDNA_LOG_DEBUG(_logger, "Read fd[{}] bytes[{}]", fd, r);
       }
 
       if (r < 0)
