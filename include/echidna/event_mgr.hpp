@@ -14,6 +14,11 @@
 
 #include "event_hlpr.hpp"
 #include "mem.hpp"
+#include "log.hpp"
+
+#ifndef ECHIDNA_LOG_DEBUG
+static_assert(false, "ECHIDNA_LOG_DEBUG not defined");
+#endif
 
 namespace coypu::event
 {
@@ -152,7 +157,7 @@ namespace coypu::event
         {
           if (_logger)
           {
-            _logger->warn("Hit epoll _maxEvents [{0}].", _maxEvents);
+            ECHIDNA_LOG_WARNING(_logger, "Hit epoll _maxEvents [{0}].", _maxEvents);
           }
         }
         for (int i = 0; i < count; ++i)
@@ -250,7 +255,7 @@ namespace coypu::event
     void perror(int errnum, const char *msg)
     {
       char buf[1024] = {};
-      _logger->error("[{0}] ({1}): {2}", errnum, strerror_r(errnum, buf, 1024), msg);
+      ECHIDNA_LOG_ERROR(_logger, "[{0}] ({1}): {2}", errnum, strerror_r(errnum, buf, 1024), msg);
     }
 
     typedef struct EventCB
