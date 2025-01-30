@@ -311,8 +311,8 @@ namespace coypu::store
       if (!_dataPage.first)
         return false;
 
-      if ((offset >= _dataPage.second) &&
-          (offset <= (_dataPage.second + _pageSize)))
+      if ((offset >= static_cast<uint64_t>(_dataPage.second)) &&
+          (offset <= (static_cast<uint64_t>(_dataPage.second) + _pageSize)))
       {
         *data = &_dataPage.first[offset - _dataPage.second];
         *len = _pageSize - (offset - _dataPage.second);
