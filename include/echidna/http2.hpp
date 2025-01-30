@@ -619,7 +619,7 @@ namespace coypu::http2
             {
               assert(len % 6 == 0); // 4,2
 
-              for (int i = 0; i < len; i += 6)
+              for (uint32_t i = 0; i < len; i += 6)
               {
                 uint16_t identifier = 0;
                 uint32_t value = 0;
