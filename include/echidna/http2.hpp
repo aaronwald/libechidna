@@ -716,6 +716,7 @@ namespace coypu::http2
     bool SendGRPCFrame(std::shared_ptr<con_type> &con, const H2Header &hdr,
                        const char *data, size_t len)
     {
+      ECHIDNA_LOG_DEBUG(_logger, "SendGRPCFrame fd[{0}] type[{1}] flags[{2}] id[{3}] len[{4}]", con->_fd, (int)hdr.type, (int)hdr.flags, hdr.id, len);
       bool b = con->_writeBuf->Push(reinterpret_cast<const char *>(&hdr), sizeof(H2Header));
       if (!b)
         return false;
