@@ -9,6 +9,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 endif()
 
 include(FetchContent)
+
+find_package(nghttp2 REQUIRED)
+
 # BEGIN echidna
 add_subdirectory(src)
 
