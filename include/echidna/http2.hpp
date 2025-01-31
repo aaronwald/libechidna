@@ -642,9 +642,15 @@ namespace coypu::http2
               // SendFrame(con, empty, nullptr, 0);
             }
           }
+          else if (con->_hdr.type == H2_FT_RST_STREAM)
+          {
+            ECHIDNA_LOG_WARNING(_logger, "Unhandled H2_FT_RST_STREAM Frame fd[{}] type[{:x}]", con->_fd, con->_hdr.type);
+
+            con->_stream->Skip(len);
+          }
           else
           {
-            ECHIDNA_LOG_WARNING(_logger, "Unhandled Frame fd[{0}] type[{:x}]", con->_fd, con->_hdr.type);
+            ECHIDNA_LOG_WARNING(_logger, "Unhandled Frame fd[{}] type[{:x}]", con->_fd, con->_hdr.type);
 
             con->_stream->Skip(len);
           }
