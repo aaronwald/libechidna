@@ -636,9 +636,10 @@ namespace coypu::http2
                 ECHIDNA_LOG_DEBUG(_logger, "Setting fd[{0}] id[{1}] value [{2}]", con->_fd, identifier, value);
               }
 
-              H2Header empty(H2_FT_SETTINGS);
-              empty.flags |= 0x1;
-              SendFrame(con, empty, nullptr, 0);
+              // Commenting out  2025-01-03 axw
+              // H2Header empty(H2_FT_SETTINGS);
+              // empty.flags |= 0x1;
+              // SendFrame(con, empty, nullptr, 0);
             }
           }
           else
