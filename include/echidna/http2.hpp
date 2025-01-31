@@ -648,6 +648,12 @@ namespace coypu::http2
 
             con->_stream->Skip(len);
           }
+          else if (con->_hdr.type == H2_FT_PING)
+          {
+            ECHIDNA_LOG_WARNING(_logger, "Unhandled H2_FT_PING Frame fd[{}] type[{:x}]", con->_fd, con->_hdr.type);
+
+            con->_stream->Skip(len);
+          }
           else
           {
             ECHIDNA_LOG_WARNING(_logger, "Unhandled Frame fd[{}] type[{:x}]", con->_fd, con->_hdr.type);
