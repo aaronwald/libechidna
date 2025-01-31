@@ -636,7 +636,7 @@ namespace coypu::http2
                 ECHIDNA_LOG_DEBUG(_logger, "Setting fd[{0}] id[{1}] value [{2}]", con->_fd, identifier, value);
               }
 
-              // Commenting out  2025-01-03 axw
+              // Commenting out  2025-01-03 axw (maybe should be a ping??)
               // H2Header empty(H2_FT_SETTINGS);
               // empty.flags |= 0x1;
               // SendFrame(con, empty, nullptr, 0);
@@ -650,9 +650,13 @@ namespace coypu::http2
           }
           else if (con->_hdr.type == H2_FT_PING)
           {
-            ECHIDNA_LOG_WARNING(_logger, "Unhandled H2_FT_PING Frame fd[{}] type[{:x}]", con->_fd, con->_hdr.type);
+            ECHIDNA_LOG_WARNING(_logger, "H2_FT_PING Frame fd[{}]", con->_fd);
 
             con->_stream->Skip(len);
+
+            H2Header empty(H2_FT_PING);
+            empty.flags |= 0x1;
+            SendFrame(con, empty, nullptr, 0);
           }
           else
           {
