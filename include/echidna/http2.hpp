@@ -644,7 +644,7 @@ namespace coypu::http2
           }
           else
           {
-            ECHIDNA_LOG_WARNING(_logger, "Unhandled Frame fd[{0}]", con->_fd);
+            ECHIDNA_LOG_WARNING(_logger, "Unhandled Frame fd[{0}] type[{:x}]", con->_fd, con->_hdr.type);
 
             con->_stream->Skip(len);
           }
