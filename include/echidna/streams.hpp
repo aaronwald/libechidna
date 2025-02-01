@@ -29,7 +29,7 @@ namespace coypu::protobuf
       return _byteCount;
     }
 
-    bool WriteAliasedRaw(const void *data, int size)
+    bool WriteAliasedRaw(const void *data [[maybe_unused]], int size [[maybe_unused]])
     {
       return false;
     }

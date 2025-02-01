@@ -311,8 +311,8 @@ namespace coypu::store
       if (!_dataPage.first)
         return false;
 
-      if ((offset >= _dataPage.second) &&
-          (offset <= (_dataPage.second + _pageSize)))
+      if ((offset >= static_cast<uint64_t>(_dataPage.second)) &&
+          (offset <= (static_cast<uint64_t>(_dataPage.second) + _pageSize)))
       {
         *data = &_dataPage.first[offset - _dataPage.second];
         *len = _pageSize - (offset - _dataPage.second);
@@ -645,8 +645,8 @@ namespace coypu::store
       using iterator_category = std::forward_iterator_tag;
       using value_type = char;
       using difference_type = char;
-      using pointer = char*;
-      using reference = char&;
+      using pointer = char *;
+      using reference = char &;
 
       store_iterator(LogType *log, offset_type offset) : _log(log), _offset(offset)
       {
@@ -1035,7 +1035,7 @@ namespace coypu::store
       if (size <= _curOffset)
       {
 
-        typename S::offset_type c = _curOffset;
+        // typename S::offset_type c = _curOffset;
         _curOffset -= size;
         // TODO Check
 
@@ -1071,9 +1071,9 @@ namespace coypu::store
       if (b)
       {
         // TODO Review. This seems correct, we only have this much data in the stream
-        if (*len > max_avail)
+        if (*len > static_cast<int>(max_avail))
         {
-          *len = max_avail;
+          *len = static_cast<int>(max_avail);
         }
         _curOffset += *len;
       }

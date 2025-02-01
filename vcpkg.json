@@ -1,0 +1,6 @@
+{
+  "dependencies": [
+    "nghttp2",
+    "protobuf"
+  ]
+}
