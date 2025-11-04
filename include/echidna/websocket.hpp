@@ -814,11 +814,14 @@ namespace coypu::http::websocket
               std::string wskey;
               if (!con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT, wskey))
               {
-                _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT);
                 if (!con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER, wskey))
                 {
-                  _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT_LOWER);
+                  _logger->error("Failed to read {0} and {1}", HEADER_SEC_WEBSOCKET_ACCEPT_LOWER), HEADER_SEC_WEBSOCKET_ACCEPT;
                   return false;
+                }
+                else
+                {
+                  _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT);
                 }
               }
 
