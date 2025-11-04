@@ -523,7 +523,6 @@ namespace coypu::http::websocket
         if (key == HEADER_SETCOOKIE)
         {
           _logger->warn("Set-Cookie header not supported yet.");
-          return false;
         }
         else
         {
@@ -812,17 +811,11 @@ namespace coypu::http::websocket
             if (con->_responsecode == "101" && con->_version == "HTTP/1.1")
             {
               std::string wskey;
-              if (!con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT, wskey))
+              if (!con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT, wskey) && !con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER, wskey))
               {
-                if (!con->GetHeader(HEADER_SEC_WEBSOCKET_ACCEPT_LOWER, wskey))
-                {
-                  _logger->error("Failed to read {0} and {1}", HEADER_SEC_WEBSOCKET_ACCEPT_LOWER), HEADER_SEC_WEBSOCKET_ACCEPT;
-                  return false;
-                }
-                else
-                {
-                  _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT);
-                }
+                _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT);
+                _logger->error("Failed to read {0}", HEADER_SEC_WEBSOCKET_ACCEPT_LOWER);
+                return false;
               }
 
               std::string key = std::string(reinterpret_cast<char *>(con->_key)) + std::string(WEBSOCKET_GUID);
