@@ -83,6 +83,7 @@ namespace coypu::http::websocket
   static constexpr const char *HEADER_HOST = "Host";
   static constexpr const char *HEADER_ORIGIN = "Origin";
   static constexpr const char *HEADER_SERVERS = "Server";
+  static constexpr const char *HEADER_SETCOOKIE = "SetCookie";
 
   static constexpr const char *HEADER_HTTP_NEWLINE = "\r\n";
   static constexpr const size_t HEADER_HTTP_NEWLINE_LEN = 2;
@@ -422,6 +423,7 @@ namespace coypu::http::websocket
       std::shared_ptr<StreamTrait> _stream;
       std::shared_ptr<PublishTrait> _publish;
       std::unordered_map<std::string, std::string> _headers;
+      std::unordered_map<std::string, std::string> _cookies;
       char *_readData;
       char *_writeData;
       std::string _uri;
@@ -518,7 +520,14 @@ namespace coypu::http::websocket
         int skip = header[i + 1] == ' ' ? 2 : 1;
         std::string value = std::string(&header[i + skip], hdr_len - i - 1 - skip);
         _logger->debug("Header fd[{2}] {0} {1}", key, value, con->_fd);
-        return con->_headers.insert(std::make_pair(key, value)).second;
+        if (key == HEADER_SETCOOKIE)
+        {
+          _logger->warn("SetCookie header not supported yet.");
+        }
+        else
+        {
+          return con->_headers.insert(std::make_pair(key, value)).second;
+        }
       }
       return false;
     }
