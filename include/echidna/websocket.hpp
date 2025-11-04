@@ -988,7 +988,7 @@ namespace coypu::http::websocket
 
           if (!AddHeader(header, offset, con))
           {
-            _logger->warn("Add header failed [{0}].", header);
+            _logger->warn("Add header failed [{0}] offset[{1}].", header, offset);
           }
         }
       }
