@@ -522,7 +522,8 @@ namespace coypu::http::websocket
         _logger->debug("Header fd[{2}] {0} {1}", key, value, con->_fd);
         if (key == HEADER_SETCOOKIE)
         {
-          _logger->warn("SetCookie header not supported yet.");
+          _logger->warn("Set-Cookie header not supported yet.");
+          return false;
         }
         else
         {
