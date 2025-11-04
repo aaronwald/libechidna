@@ -83,7 +83,7 @@ namespace coypu::http::websocket
   static constexpr const char *HEADER_HOST = "Host";
   static constexpr const char *HEADER_ORIGIN = "Origin";
   static constexpr const char *HEADER_SERVERS = "Server";
-  static constexpr const char *HEADER_SETCOOKIE = "SetCookie";
+  static constexpr const char *HEADER_SETCOOKIE = "Set-Cookie";
 
   static constexpr const char *HEADER_HTTP_NEWLINE = "\r\n";
   static constexpr const size_t HEADER_HTTP_NEWLINE_LEN = 2;
