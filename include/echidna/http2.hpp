@@ -40,7 +40,6 @@
 #include <memory>
 #include "echidna/buf.hpp"
 #include "echidna/streams.hpp"
-#include "log.hpp"
 
 // #include "proto/coincache.pb.h"
 
@@ -203,7 +202,7 @@ namespace coypu::http2
       int rv = nghttp2_hd_inflate_new(&_inflater);
       if (rv != 0)
       {
-        ECHIDNA_LOG_ERROR(_logger, "nghttp2_hd_inflate_init failed with error: {}", nghttp2_strerror(rv));
+        _logger->error("nghttp2_hd_inflate_init failed with error: {}", nghttp2_strerror(rv));
         assert(false);
       }
     }
