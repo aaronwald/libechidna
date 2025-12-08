@@ -166,7 +166,7 @@ namespace coypu
 
         if (_head >= _tail && _head < _capacity)
         {
-          CapacityType x = std::min(size, (_capacity - _head));
+          CapacityType x = std::min<CapacityType>(size, _capacity - _head);
           ::memcpy(&_data[_head], indata, sizeof(DataType) * x);
           _head += x;
           if (_head == _capacity)
@@ -228,7 +228,7 @@ namespace coypu
         }
         else
         {
-          CapacityType r = std::min(_head, count);
+          CapacityType r = std::min<CapacityType>(_head, count);
           _head -= r;
           count -= r;
           if (count)
@@ -254,7 +254,7 @@ namespace coypu
 
         if (_tail > _head || _full)
         {
-          CapacityType x = std::min(size, (_capacity - _tail));
+          CapacityType x = std::min<CapacityType>(size, _capacity - _tail);
           ::memcpy(&dest[offset], &_data[_tail], sizeof(DataType) * x);
 
           if (!peak)
@@ -298,7 +298,7 @@ namespace coypu
 
         if (_tail > _head || _full)
         {
-          CapacityType x = std::min(size, (_capacity - _tail));
+          CapacityType x = std::min<CapacityType>(size, _capacity - _tail);
           if (!cb(&_data[_tail], x))
             return false;
           _tail += x;
@@ -527,7 +527,7 @@ namespace coypu
           if (count > (_tail + (_capacity - _head)))
             return false;
 
-          CapacityType temp = std::min(_tail, count);
+          CapacityType temp = std::min<CapacityType>(_tail, count);
           _tail -= temp;
           count -= temp;
 
@@ -581,7 +581,7 @@ namespace coypu
 
         if (_tail > _head || _full)
         {
-          CapacityType x = std::min(size, (_capacity - _tail));
+          CapacityType x = std::min<CapacityType>(size, _capacity - _tail);
 
           _tail += x;
           if (_tail == _capacity)
