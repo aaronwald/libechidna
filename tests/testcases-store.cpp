@@ -1241,3 +1241,416 @@ TEST(StoreEdgeCaseTest, PopAtPageBoundary)
 	EXPECT_EQ(result[4], 'X');
 	EXPECT_EQ(result[5], 'Y');
 }
+
+// ============================================================================
+// Stress Tests
+// ============================================================================
+
+TEST(StoreStressTest, HighVolumePush)
+{
+	LogRWStream<MMapAnon, OneShotCache, 32> rwBuf(MemManager::GetPageSize(), 0, -1, true);
+
+	const int iterations = 100000;
+	const char* data = "stress";
+
+	for (int i = 0; i < iterations; ++i) {
+		ASSERT_EQ(rwBuf.Push(data, 6), 0) << "Failed at iteration " << i;
+	}
+
+	EXPECT_EQ(rwBuf.Available(), static_cast<uint64_t>(iterations * 6));
+}
+
+TEST(StoreStressTest, HighVolumeVariableSizePush)
+{
+	LogRWStream<MMapAnon, OneShotCache, 32> rwBuf(MemManager::GetPageSize(), 0, -1, true);
+
+	const int iterations = 50000;
+	uint64_t totalBytes = 0;
+
+	for (int i = 0; i < iterations; ++i) {
+		char buf[64];
+		int len = snprintf(buf, sizeof(buf), "msg-%d-data", i);
+		ASSERT_EQ(rwBuf.Push(buf, len), 0) << "Failed at iteration " << i;
+		totalBytes += len;
+	}
+
+	EXPECT_EQ(rwBuf.Available(), totalBytes);
+}
+
+TEST(StoreStressTest, HighVolumePushPop)
+{
+	LogRWStream<MMapAnon, OneShotCache, 32> rwBuf(MemManager::GetPageSize(), 0, -1, true);
+
+	const int iterations = 50000;
+	uint64_t offset = 0;
+
+	for (int i = 0; i < iterations; ++i) {
+		char buf[32];
+		int len = snprintf(buf, sizeof(buf), "iter-%05d", i);
+
+		ASSERT_EQ(rwBuf.Push(buf, len), 0) << "Push failed at iteration " << i;
+
+		char readBuf[32] = {};
+		ASSERT_TRUE(rwBuf.Pop(offset, readBuf, len)) << "Pop failed at iteration " << i;
+		ASSERT_EQ(strncmp(buf, readBuf, len), 0) << "Data mismatch at iteration " << i;
+
+		offset += len;
+	}
+}
+
+TEST(StoreStressTest, ManyPageAllocations)
+{
+	size_t pageSize = MemManager::GetPageSize();
+	LogRWStream<MMapAnon, OneShotCache, 64> rwBuf(pageSize, 0, -1, true);
+
+	// Allocate 100 pages worth of data
+	const int numPages = 100;
+	std::vector<char> pageData(pageSize, 'P');
+
+	for (int i = 0; i < numPages; ++i) {
+		// Mark each page with its index
+		pageData[0] = 'A' + (i % 26);
+		ASSERT_EQ(rwBuf.Push(pageData.data(), pageSize), 0) << "Failed at page " << i;
+	}
+
+	EXPECT_EQ(rwBuf.Available(), static_cast<uint64_t>(numPages * pageSize));
+
+	// Verify each page
+	for (int i = 0; i < numPages; ++i) {
+		char d = 0;
+		ASSERT_TRUE(rwBuf.Peak(i * pageSize, d)) << "Peak failed at page " << i;
+		EXPECT_EQ(d, 'A' + (i % 26)) << "Data mismatch at page " << i;
+	}
+}
+
+TEST(StoreStressTest, LRUCacheThrasher)
+{
+	char buf[1024];
+	int fd = FileUtil::MakeTemp("coypu", buf, sizeof(buf));
+	ASSERT_TRUE(fd > 0);
+
+	size_t pageSize = MemManager::GetPageSize();
+	// Small cache (4 pages) with many pages of data
+	LogRWStream<MMapShared, LRUCache, 4> rwBuf(pageSize, 0, fd, false);
+
+	const int numPages = 20;
+	std::vector<char> pageData(pageSize);
+
+	// Write many pages
+	for (int i = 0; i < numPages; ++i) {
+		memset(pageData.data(), 'A' + i, pageSize);
+		ASSERT_EQ(rwBuf.Push(pageData.data(), pageSize), 0);
+	}
+
+	// Random access pattern to thrash cache
+	int accessPattern[] = {0, 19, 1, 18, 2, 17, 3, 16, 4, 15, 5, 14, 6, 13, 7, 12, 8, 11, 9, 10};
+	for (int round = 0; round < 10; ++round) {
+		for (int idx : accessPattern) {
+			char d = 0;
+			ASSERT_TRUE(rwBuf.Peak(idx * pageSize, d)) << "Failed at page " << idx << " round " << round;
+			EXPECT_EQ(d, 'A' + idx) << "Data mismatch at page " << idx;
+		}
+	}
+
+	ASSERT_NO_THROW(FileUtil::Close(fd));
+	ASSERT_NO_THROW(FileUtil::Remove(buf));
+}
+
+TEST(StoreStressTest, PositionedStreamHighVolume)
+{
+	typedef LogRWStream<MMapAnon, OneShotCache, 32> stream_type;
+	auto stream = std::make_shared<stream_type>(MemManager::GetPageSize(), 0, -1, true);
+
+	PositionedStream<stream_type> posStream(stream);
+
+	const int iterations = 20000;
+
+	for (int i = 0; i < iterations; ++i) {
+		char buf[32];
+		int len = snprintf(buf, sizeof(buf), "pos-%05d", i);
+		ASSERT_EQ(posStream.Push(buf, len), 0) << "Push failed at " << i;
+	}
+
+	// Pop all data
+	for (int i = 0; i < iterations; ++i) {
+		char buf[32];
+		int expectedLen = snprintf(buf, sizeof(buf), "pos-%05d", i);
+
+		char readBuf[32] = {};
+		ASSERT_TRUE(posStream.Pop(readBuf, expectedLen)) << "Pop failed at " << i;
+		ASSERT_EQ(strncmp(buf, readBuf, expectedLen), 0) << "Mismatch at " << i;
+	}
+
+	EXPECT_EQ(posStream.Available(), 0u);
+}
+
+TEST(StoreStressTest, MultiClientHighVolume)
+{
+	typedef LogRWStream<MMapAnon, OneShotCache, 32> stream_type;
+	auto stream = std::make_shared<stream_type>(MemManager::GetPageSize(), 0, -1, true);
+
+	MultiPositionedStreamLog<stream_type> multiStream(stream);
+
+	// Register multiple clients
+	const int numClients = 50;
+	for (int i = 0; i < numClients; ++i) {
+		ASSERT_EQ(multiStream.Register(i, 0), 0) << "Failed to register client " << i;
+	}
+
+	// Push data
+	const int iterations = 10000;
+	for (int i = 0; i < iterations; ++i) {
+		char buf[32];
+		int len = snprintf(buf, sizeof(buf), "multi-%05d", i);
+		ASSERT_EQ(multiStream.Push(buf, len), 0) << "Push failed at " << i;
+	}
+
+	// All clients should see same available
+	uint64_t expected = multiStream.Available();
+	for (int i = 0; i < numClients; ++i) {
+		EXPECT_EQ(multiStream.Available(i), expected) << "Client " << i << " has wrong available";
+	}
+
+	// Mark some clients at different positions
+	for (int i = 0; i < numClients; ++i) {
+		uint64_t newPos = (i * 1000) % expected;
+		ASSERT_TRUE(multiStream.Mark(i, newPos)) << "Failed to mark client " << i;
+		EXPECT_EQ(multiStream.Available(i), expected - newPos) << "Client " << i << " wrong after mark";
+	}
+}
+
+TEST(StoreStressTest, ZeroCopyHighVolume)
+{
+	LogRWStream<MMapAnon, OneShotCache, 32> rwBuf(MemManager::GetPageSize(), 0, -1, true);
+
+	const int iterations = 10000;
+	uint64_t totalWritten = 0;
+
+	for (int i = 0; i < iterations; ++i) {
+		void *data = nullptr;
+		int len = 0;
+
+		ASSERT_EQ(rwBuf.ZeroCopyWriteNext(&data, &len), 0) << "ZeroCopyWriteNext failed at " << i;
+		ASSERT_NE(data, nullptr);
+		ASSERT_GT(len, 0);
+
+		// Write a small amount and backup the rest
+		int writeSize = std::min(len, 16);
+		memset(data, 'Z', writeSize);
+		rwBuf.ZeroCopyWriteBackup(len - writeSize);
+
+		totalWritten += writeSize;
+	}
+
+	EXPECT_EQ(rwBuf.Available(), totalWritten);
+}
+
+TEST(StoreStressTest, FindStress)
+{
+	LogRWStream<MMapAnon, OneShotCache, 32> rwBuf(MemManager::GetPageSize(), 0, -1, true);
+
+	size_t pageSize = MemManager::GetPageSize();
+
+	// Create data with markers at specific positions
+	const int numPages = 10;
+	for (int p = 0; p < numPages; ++p) {
+		std::vector<char> pageData(pageSize, 'a' + p);
+		// Put unique marker near end of each page
+		pageData[pageSize - 10] = 'X';
+		pageData[pageSize - 9] = '0' + p;
+		ASSERT_EQ(rwBuf.Push(pageData.data(), pageSize), 0);
+	}
+
+	// Find all markers
+	for (int p = 0; p < numPages; ++p) {
+		uint64_t offset = 0;
+		uint64_t searchStart = p * pageSize;
+		ASSERT_TRUE(rwBuf.Find(searchStart, 'X', offset)) << "Failed to find X in page " << p;
+		EXPECT_EQ(offset, searchStart + pageSize - 10) << "Wrong offset for page " << p;
+	}
+}
+
+TEST(StoreStressTest, ReadvHighVolume)
+{
+	char buf[1024];
+	int fd = FileUtil::MakeTemp("coypu", buf, sizeof(buf));
+	ASSERT_TRUE(fd > 0);
+
+	// Use LRUCache for random access support
+	LogRWStream<MMapShared, LRUCache, 32> rwBuf(MemManager::GetPageSize(), 0, fd, false);
+
+	int fds[2];
+	ASSERT_EQ(pipe(fds), 0);
+
+	std::function<int(int, const struct iovec *, int)> rcb = [](int pfd, const struct iovec *io, int count) {
+		return ::readv(pfd, io, count);
+	};
+
+	const int iterations = 500;
+	uint64_t totalRead = 0;
+
+	for (int i = 0; i < iterations; ++i) {
+		char data[64];
+		int len = snprintf(data, sizeof(data), "readv-%04d", i);
+
+		// Write to pipe
+		ASSERT_EQ(write(fds[1], data, len), len) << "write failed at " << i;
+
+		// Readv from pipe into stream
+		int r = rwBuf.Readv(fds[0], rcb);
+		ASSERT_GT(r, 0) << "Readv failed at " << i;
+		totalRead += r;
+
+		// Handle partial reads
+		while (r < len) {
+			int r2 = rwBuf.Readv(fds[0], rcb);
+			if (r2 <= 0) break;
+			r += r2;
+			totalRead += r2;
+		}
+	}
+
+	close(fds[0]);
+	close(fds[1]);
+
+	EXPECT_EQ(rwBuf.Available(), totalRead);
+
+	ASSERT_NO_THROW(FileUtil::Close(fd));
+	ASSERT_NO_THROW(FileUtil::Remove(buf));
+}
+
+TEST(StoreStressTest, WritevHighVolume)
+{
+	char buf[1024];
+	int fd = FileUtil::MakeTemp("coypu", buf, sizeof(buf));
+	ASSERT_TRUE(fd > 0);
+
+	LogRWStream<MMapShared, LRUCache, 32> rwBuf(MemManager::GetPageSize(), 0, fd, false);
+
+	// First push a bunch of data
+	const int dataSize = 10000;
+	for (int i = 0; i < dataSize; ++i) {
+		char data[16];
+		int len = snprintf(data, sizeof(data), "w%04d", i);
+		ASSERT_EQ(rwBuf.Push(data, len), 0);
+	}
+
+	int fds[2];
+	ASSERT_EQ(pipe(fds), 0);
+
+	std::function<int(int, const struct iovec *, int)> wcb = [](int pfd, const struct iovec *io, int count) {
+		return ::writev(pfd, io, count);
+	};
+
+	uint64_t totalAvailable = rwBuf.Available();
+	uint64_t written = 0;
+	uint64_t offset = 0;
+
+	while (written < totalAvailable && written < 5000) {
+		int toWrite = std::min(static_cast<uint64_t>(128), totalAvailable - written);
+		int r = rwBuf.Writev(offset, toWrite, fds[1], wcb);
+		if (r <= 0) break;
+		written += r;
+		offset += r;
+
+		// Drain the read side to prevent blocking
+		char drain[128];
+		ASSERT_EQ(read(fds[0], drain, r), r);
+	}
+
+	EXPECT_GT(written, 0u);
+
+	close(fds[0]);
+	close(fds[1]);
+
+	ASSERT_NO_THROW(FileUtil::Close(fd));
+	ASSERT_NO_THROW(FileUtil::Remove(buf));
+}
+
+TEST(StoreStressTest, LogWriteBufLargeFile)
+{
+	char buf[1024];
+	int fd = FileUtil::MakeTemp("coypu", buf, sizeof(buf));
+	ASSERT_TRUE(fd > 0);
+
+	size_t pageSize = MemManager::GetPageSize();
+	LogWriteBuf<MMapShared> store(pageSize, 0, fd, false, false);
+
+	// Write 10MB of data
+	const size_t totalSize = 10 * 1024 * 1024;
+	std::vector<char> chunk(4096, 'D');
+
+	size_t written = 0;
+	while (written < totalSize) {
+		ASSERT_EQ(store.Push(chunk.data(), chunk.size()), 0) << "Failed after writing " << written;
+		written += chunk.size();
+	}
+
+	ASSERT_NO_THROW(FileUtil::Close(fd));
+	ASSERT_NO_THROW(FileUtil::Remove(buf));
+}
+
+TEST(StoreStressTest, OneShotCacheSequentialAccess)
+{
+	typedef LogRWStream<MMapAnon, OneShotCache, 16> stream_type;
+	stream_type rwBuf(MemManager::GetPageSize(), 0, -1, true);
+
+	size_t pageSize = MemManager::GetPageSize();
+	const int numPages = 50;
+
+	// Write many pages
+	for (int i = 0; i < numPages; ++i) {
+		std::vector<char> data(pageSize, 'A' + (i % 26));
+		ASSERT_EQ(rwBuf.Push(data.data(), pageSize), 0);
+	}
+
+	// Sequential read - this is optimal for OneShotCache
+	for (int i = 0; i < numPages; ++i) {
+		char d = 0;
+		ASSERT_TRUE(rwBuf.Peak(i * pageSize, d)) << "Failed at page " << i;
+		EXPECT_EQ(d, 'A' + (i % 26));
+	}
+}
+
+TEST(StoreStressTest, MixedOperations)
+{
+	typedef LogRWStream<MMapAnon, OneShotCache, 32> stream_type;
+	auto stream = std::make_shared<stream_type>(MemManager::GetPageSize(), 0, -1, true);
+
+	PositionedStream<stream_type> posStream(stream);
+
+	const int iterations = 5000;
+
+	for (int i = 0; i < iterations; ++i) {
+		// Push
+		char buf[32];
+		int len = snprintf(buf, sizeof(buf), "mix-%05d", i);
+		ASSERT_EQ(posStream.Push(buf, len), 0);
+
+		// Occasionally do other operations
+		if (i % 10 == 0) {
+			// Peak
+			char d = 0;
+			posStream.Peak(0, d);
+		}
+
+		if (i % 20 == 0 && posStream.Available() > 10) {
+			// Skip some
+			posStream.Skip(5);
+		}
+
+		if (i % 30 == 0 && posStream.CurrentOffset() > 5) {
+			// Backup
+			posStream.Backup(3);
+		}
+
+		if (i % 50 == 0) {
+			// Find
+			uint64_t offset = 0;
+			posStream.Find(0, '-', offset);
+		}
+	}
+
+	// Should still have data
+	EXPECT_GT(posStream.TotalAvailable(), 0u);
+}
