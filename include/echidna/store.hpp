@@ -849,6 +849,11 @@ namespace coypu::store
     // copy
     bool Pop(offset_type start_offset, char *dest, uint64_t size)
     {
+      if (start_offset >= _available)
+        return false;
+      if (start_offset + size > _available)
+        return false;
+
       page_offset_type startPage = start_offset / _pageSize;
       page_offset_type maxPage = _available / _pageSize;
       typename read_cache_type::read_cache_type page;
