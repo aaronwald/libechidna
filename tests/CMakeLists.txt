@@ -2,7 +2,7 @@
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        release-1.11.0
+  GIT_TAG        v1.17.0
 )
 
 include(GoogleTest)
@@ -20,8 +20,8 @@ FetchContent_Declare(
 
 FetchContent_GetProperties(spdlog)
 if (NOT spdlog_POPULATED)
-  FetchContent_Populate(spdlog)
-  add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
+  FetchContent_MakeAvailable(spdlog)
+  # add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
 endif()
 # END spdlog
 

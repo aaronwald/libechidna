@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(cmake --build:*)",
+      "Bash(./build/tests/echidnatest:*)",
+      "Bash(cmake:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
